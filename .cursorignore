@@ -1,0 +1,9 @@
+# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
+*.csv
+*.xlsx
+
+env/
+backend/__pycache__/
+frontend/.next/
+node_modules/
+
