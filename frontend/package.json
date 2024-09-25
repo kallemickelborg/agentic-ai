@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:backend": "pip install -r requirements.txt",
+    "build:all": "npm run build:frontend && npm run build:backend"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",
