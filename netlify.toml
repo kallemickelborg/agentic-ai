@@ -2,6 +2,10 @@
   command = "npm run build:all"
   publish = "frontend/.next"
 
+[build.environment]
+  NODE_VERSION = "18"
+  PYTHON_VERSION = "3.9"
+
 [functions]
   directory = "netlify/functions"
 
