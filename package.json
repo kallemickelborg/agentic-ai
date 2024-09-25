@@ -5,6 +5,6 @@
   "scripts": {
     "build:frontend": "cd frontend && npm install && npm run build",
     "build:backend": "pip3 install -r requirements.txt",
-    "build:all": "npm run build:frontend && npm run build:backend && cp -r frontend/out/* frontend/.next/"
+    "build:all": "npm run build:frontend && npm run build:backend"
   }
 }

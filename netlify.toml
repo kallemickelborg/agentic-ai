@@ -1,6 +1,6 @@
 [build]
   command = "npm run build:all"
-  publish = "frontend/.next"
+  publish = "frontend/out"
 
 [build.environment]
   NODE_VERSION = "18"
