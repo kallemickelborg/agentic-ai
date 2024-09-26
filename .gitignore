@@ -19,6 +19,7 @@ __pycache__/
 # IDE files
 .vscode/
 .idea/
+.cursorignore
 
 # OS files
 .DS_Store
