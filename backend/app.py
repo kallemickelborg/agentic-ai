@@ -359,16 +359,14 @@ def solve_task(task: Task):
             "current_steps": state_substeps.get("End", [])
         }
 
-# Allow CORS for the frontend
-origins = [
-    "http://localhost:3000",  # For local development
-    "https://agentic-ai.netlify.app",  # Replace with your actual Netlify URL
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=['*'],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
