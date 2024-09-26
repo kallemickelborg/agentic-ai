@@ -1,5 +1,7 @@
 [build]
   command = "npm run build:all"
+  publish = "frontend/.next"
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -7,6 +9,7 @@
 
 [functions]
   directory = "netlify/functions"
+  included_files = ["backend/**"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
