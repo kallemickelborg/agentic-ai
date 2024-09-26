@@ -362,7 +362,7 @@ def solve_task(task: Task):
 # Allow CORS for the frontend
 origins = [
     "http://localhost:3000",  # For local development
-    "https://your-netlify-site.netlify.app",  # Replace with your actual Netlify URL
+    "https://agentic-ai.netlify.app",  # Replace with your actual Netlify URL
 ]
 
 app.add_middleware(

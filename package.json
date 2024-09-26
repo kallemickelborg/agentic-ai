@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build:frontend": "cd frontend && npm install && npm run build",
-    "build:backend": "pip3 install -r requirements.txt && cp -r backend netlify/functions/",
+    "build:backend": "pip3 install -r netlify/functions/requirements.txt -t netlify/functions/ && cp -rv backend/. netlify/functions/backend/",
     "build:all": "npm run build:frontend && npm run build:backend"
   }
 }

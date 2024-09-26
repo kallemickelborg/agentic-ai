@@ -9,7 +9,6 @@
 
 [functions]
   directory = "netlify/functions"
-  included_files = ["backend/**"]
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

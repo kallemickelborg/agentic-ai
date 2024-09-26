@@ -24,5 +24,9 @@ __pycache__/
 # OS files
 .DS_Store
 Thumbs.db
+
 # Local Netlify folder
-.netlify
+.netlify/
+
+# Include backend in functions if necessary
+!netlify/functions/backend/
