@@ -92,8 +92,7 @@ export default function TaskSolver() {
         research_papers: researchPapers,
       };
 
-      // Import process.env
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/.netlify/functions/solve_task';
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
       const result = await axios.post(`${API_BASE_URL}/solve-task/`, payload);
 
       console.log('Server Response:', result.data);
