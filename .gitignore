@@ -30,3 +30,4 @@ Thumbs.db
 
 # Include backend in functions if necessary
 !netlify/functions/backend/
+!backend/
