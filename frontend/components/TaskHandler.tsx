@@ -36,10 +36,6 @@ interface Task {
   research_papers: Paper[];
 }
 
-const API_URL = process.env.NODE_ENV === 'development' 
-  ? 'http://localhost:5000' 
-  : '/.netlify/functions/api';
-
 export default function TaskSolver() {
   const [taskState, setTaskState] = useState('Init');
   const [taskDescription, setTaskDescription] = useState('');

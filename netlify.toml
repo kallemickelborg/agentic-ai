@@ -1,11 +1,9 @@
 [build]
   command = "npm run build:all"
-  publish = "frontend/.next"
 
 [build.environment]
   NODE_VERSION = "18"
   PYTHON_VERSION = "3.8"
-  NEXT_PRIVATE_TARGET = "server"
 
 [functions]
   directory = "netlify/functions"
@@ -13,7 +11,7 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200

@@ -2,9 +2,9 @@
   "name": "agentic-ai",
   "version": "1.0.0",
   "private": true,
-      "scripts": {
-      "build:frontend": "cd frontend && npm install && npm run build",
-      "build:backend": "pip3 install -r requirements.txt",
-      "build:all": "npm run build:frontend && npm run build:backend"
-    }
+  "scripts": {
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:backend": "pip3 install -r requirements.txt",
+    "build:all": "npm run build:frontend && npm run build:backend"
   }
+}
