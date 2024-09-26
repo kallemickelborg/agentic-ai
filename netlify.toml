@@ -4,10 +4,14 @@
 
 [build.environment]
   NODE_VERSION = "18"
-  PYTHON_VERSION = "3.8"
+  PYTHON_VERSION = "3.9"
+  NEXT_PRIVATE_TARGET = "server"
 
 [functions]
   directory = "netlify/functions"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 [[redirects]]
   from = "/*"
