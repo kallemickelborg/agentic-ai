@@ -92,7 +92,10 @@ export default function TaskSolver() {
         research_papers: researchPapers,
       };
 
-      const result = await axios.post('http://localhost:8000/solve-task/', payload);
+      // Import process.env
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+
+      const result = await axios.post(`${API_BASE_URL}/solve-task/`, payload);
 
       console.log('Server Response:', result.data);
 

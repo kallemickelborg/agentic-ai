@@ -1,0 +1,6 @@
+fastapi
+mangum
+pydantic
+requests
+python-dotenv
+openai

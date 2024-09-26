@@ -360,9 +360,14 @@ def solve_task(task: Task):
         }
 
 # Allow CORS for the frontend
+origins = [
+    "http://localhost:3000",  # For local development
+    "https://your-netlify-site.netlify.app",  # Replace with your actual Netlify URL
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update this with your frontend's URL in production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
