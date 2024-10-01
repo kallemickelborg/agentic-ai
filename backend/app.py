@@ -169,32 +169,17 @@ def fetch_research_papers(query: str, max_results: int = 20):
     logger.info(f"Successfully fetched {len(papers)} research papers.")
     return papers
 
-def query_openai(prompt: str, sources: list):
-    """
-    Query OpenAI with the given prompt and sources.
-    """
-    logger.info("Sending prompt to OpenAI...")
+def query_openai(prompt: str):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant. When providing responses, "
-                        "please break down key insights into bullet points, and for each bullet point, "
-                        "include the associated reference citation (link)."
-                    )
-                },
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1000  # Increase if necessary
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500
         )
-        logger.info("Received response from OpenAI.")
-        return response.choices[0].message['content'].strip()
-    except openai.error.OpenAIError as e:
+        return response.choices[0].message.content.strip()
+    except Exception as e:
         logger.error(f"OpenAI API error: {e}")
-        return "An error occurred while communicating with OpenAI."
+        return "An error occurred while processing your request."
 
 def query_openai_questions(prompt: str):
     logger.info(f"Querying OpenAI with prompt: {prompt}")
@@ -341,7 +326,7 @@ async def solve_task(task: Task):
                 logger.info(f"Step: {step}")
                 # Implement actual step execution logic here
             
-            action = query_openai(prompt, sources=[paper.link for paper in task.research_papers])
+            action = query_openai(prompt)
             next_state = state_transitions.get(task.state, "End")
             logger.info(f"Transitioning from '{task.state}' to '{next_state}'")
             return {
