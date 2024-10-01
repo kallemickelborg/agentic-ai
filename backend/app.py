@@ -241,7 +241,7 @@ def enhance_query(original_query: str, answers: list):
         return original_query
 
 @app.post("/solve-task/")
-def solve_task(task: Task):
+async def solve_task(task: Task):
     logger.info(f"Received task: {task.dict()}")
     try:
         if task.state == "Init":
@@ -357,13 +357,6 @@ def solve_task(task: Task):
                 "response": "Task completed.",
                 "current_steps": state_substeps.get("End", [])
             }
-    except openai.error.AuthenticationError:
-        logger.error("OpenAI Authentication Error: Invalid API key.")
-        return {
-            "state": "End",
-            "response": "Authentication error. Please check your API key.",
-            "current_steps": state_substeps.get("End", [])
-        }
     except Exception as e:
         logger.error(f"Error in solve_task: {str(e)}", exc_info=True)
         return {
