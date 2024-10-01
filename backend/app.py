@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, HTTPException
 from pydantic import BaseModel
+from typing import List, Dict, Optional
 import openai
 from fastapi.middleware.cors import CORSMiddleware
 import requests
