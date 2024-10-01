@@ -168,32 +168,22 @@ def fetch_research_papers(query: str, max_results: int = 20):
     logger.info(f"Successfully fetched {len(papers)} research papers.")
     return papers
 
-def query_openai(prompt: str, sources: list):
+def query_openai(prompt: str):
     """
-    Query OpenAI with the given prompt and sources.
+    Query OpenAI with the given prompt.
     """
     logger.info("Sending prompt to OpenAI...")
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful assistant. When providing responses, "
-                        "please break down key insights into bullet points, and for each bullet point, "
-                        "include the associated reference citation (link)."
-                    )
-                },
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1000  # Increase if necessary
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500
         )
         logger.info("Received response from OpenAI.")
-        return response.choices[0].message['content'].strip()
-    except openai.error.OpenAIError as e:
+        return response.choices[0].message.content.strip()
+    except Exception as e:
         logger.error(f"OpenAI API error: {e}")
-        return "An error occurred while communicating with OpenAI."
+        return "An error occurred while processing your request."
 
 def query_openai_questions(prompt: str):
     logger.info(f"Querying OpenAI with prompt: {prompt}")
@@ -213,30 +203,32 @@ def query_openai_questions(prompt: str):
         logger.error(f"OpenAI API error: {e}")
         return ["An error occurred while generating questions."]
 
-def enhance_query(original_query: str, answers: list):
-    logger.info(f"Enhancing query. Original: {original_query}, Answers: {answers}")
+def enhance_query(original_query: str, clarify_answers: List[Dict[str, str]]) -> str:
+    logger.info(f"Enhancing query. Original: {original_query}, Answers: {clarify_answers}")
+    prompt = f"""Original research query: {original_query}
+Clarifying questions and answers:
+"""
+    for answer in clarify_answers:
+        prompt += f"Q: {answer['question']}\nA: {answer['answer']}\n"
     
-    prompt = f"Original research query: {original_query}\n\n"
-    prompt += "Clarifying questions and answers:\n"
-    for answer in answers:
-        prompt += f"Q: {answer.get('question')}\nA: {answer.get('answer')}\n"
-    prompt += "\nBased on the original query and the answers to the clarifying questions, formulate a new, optimized research query."
-
+    prompt += "Based on the original query and the answers to the clarifying questions, formulate a new, optimized research query."
+    
     logger.info(f"Sending prompt to OpenAI: {prompt}")
-
+    
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
+                {"role": "system", "content": "You are a helpful assistant that optimizes research queries."},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=100
         )
-        enhanced_query = response.choices[0].message['content'].strip()
-        logger.info(f"Enhanced query from OpenAI: {enhanced_query}")
+        enhanced_query = response.choices[0].message.content.strip()
+        logger.info(f"Enhanced query: {enhanced_query}")
         return enhanced_query
-    except openai.error.OpenAIError as e:
-        logger.error(f"OpenAI API error: {e}")
+    except Exception as e:
+        logger.error(f"Error in enhance_query: {str(e)}")
         return original_query
 
 @app.post("/solve-task/")
