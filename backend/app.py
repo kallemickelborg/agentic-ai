@@ -169,17 +169,32 @@ def fetch_research_papers(query: str, max_results: int = 20):
     logger.info(f"Successfully fetched {len(papers)} research papers.")
     return papers
 
-def query_openai(prompt: str):
+def query_openai(prompt: str, sources: list):
+    """
+    Query OpenAI with the given prompt and sources.
+    """
+    logger.info("Sending prompt to OpenAI...")
     try:
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant. When providing responses, "
+                        "please break down key insights into bullet points, and for each bullet point, "
+                        "include the associated reference citation (link)."
+                    )
+                },
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1000  # Increase if necessary
         )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
+        logger.info("Received response from OpenAI.")
+        return response.choices[0].message['content'].strip()
+    except openai.error.OpenAIError as e:
         logger.error(f"OpenAI API error: {e}")
-        return "An error occurred while processing your request."
+        return "An error occurred while communicating with OpenAI."
 
 def query_openai_questions(prompt: str):
     logger.info(f"Querying OpenAI with prompt: {prompt}")
@@ -229,10 +244,17 @@ def enhance_query(original_query: str, answers: list):
 async def solve_task(task: Task):
     logger.info(f"Received task: {task.dict()}")
     try:
-        if task.state == "Init":
+        state = task.state
+        logger.info(f"Current state: {state}")
+        input_data = task.input_data
+        task_description = task.task_description
+        research_papers = task.research_papers
+        clarifying_questions = task.clarifying_questions
+
+        if state == "Init":
             # Transition from Init to Clarify
-            next_state = state_transitions.get(task.state, "End")
-            current_steps = state_substeps.get(task.state, [])
+            next_state = state_transitions.get(state, "End")
+            current_steps = state_substeps.get(state, [])
             logger.info(f"Transitioning from 'Init' to '{next_state}'")
             return {
                 "state": next_state,
@@ -240,14 +262,14 @@ async def solve_task(task: Task):
                 "current_steps": current_steps
             }
         
-        elif task.state == "Clarify":
-            if "clarify_answers" not in task.input_data or not task.input_data["clarify_answers"]:
+        elif state == "Clarify":
+            if "clarify_answers" not in input_data or not input_data["clarify_answers"]:
                 # Generate clarifying questions
-                prompt = f"You are an Agentic AI Dietician. Ask 2-3 critical follow-up questions that can be answered with 'Yes' or 'No' to make the user's research prompt more specific. Ensure that the questions are strictly yes/no and won't require further elaboration. The user's prompt is: '{task.task_description}'"
+                prompt = f"You are an Agentic AI Dietician. Ask 2-3 critical follow-up questions that can be answered with 'Yes' or 'No' to make the user's research prompt more specific. Ensure that the questions are strictly yes/no and won't require further elaboration. The user's prompt is: '{task_description}'"
                 logger.info(f"Generating clarifying questions. Prompt: {prompt}")
                 questions = query_openai_questions(prompt)
                 logger.info(f"Generated questions: {questions}")
-                current_steps = state_substeps.get(task.state, [])
+                current_steps = state_substeps.get(state, [])
                 return {
                     "state": "Clarify",
                     "response": "Please answer the following questions to refine your research query:",
@@ -256,13 +278,13 @@ async def solve_task(task: Task):
                 }
             else:
                 # Process answers and enhance query
-                logger.info(f"Processing clarifying answers: {task.input_data['clarify_answers']}")
-                enhanced_query = enhance_query(task.task_description, task.input_data.get("clarify_answers", []))
+                logger.info(f"Processing clarifying answers: {input_data['clarify_answers']}")
+                enhanced_query = enhance_query(task_description, input_data.get("clarify_answers", []))
                 logger.info(f"Enhanced query: {enhanced_query}")
                 # Use the enhanced query to fetch research papers
                 papers = fetch_research_papers(enhanced_query, max_results=20)
                 logger.info(f"Fetched {len(papers)} research papers")
-                task.research_papers = papers
+                research_papers = papers
                 next_state = "Research"
                 logger.info(f"Transitioning from 'Clarify' to '{next_state}'")
                 return {
@@ -272,46 +294,45 @@ async def solve_task(task: Task):
                     "current_steps": state_substeps.get(next_state, []),
                 }
         
-        elif task.state == "Research":
+        elif state == "Research":
             # Combine user's prompt with answers to generate enhanced query
-            enhanced_query = enhance_query(task.task_description, task.input_data.get("clarify_answers", []))
-            # logger.info(f"Enhanced query for research: {enhanced_query}")
+            enhanced_query = enhance_query(task_description, input_data.get("clarify_answers", []))
             papers = fetch_research_papers(enhanced_query, max_results=20)
             logger.info(f"Fetched {len(papers)} research papers")
-            task.research_papers = papers
+            research_papers = papers
             # Stay in 'Research' state to allow paper selection
-            next_state = task.state  # Do not transition yet
+            next_state = state  # Do not transition yet
             logger.info(f"Staying in 'Research' state to allow paper selection")
             return {
                 "state": next_state,
                 "response": "Research papers fetched. Please select the papers you want to include and click 'Proceed with Selected Papers'.",
                 "research_papers": papers,
-                "current_steps": state_substeps.get(task.state, []),
+                "current_steps": state_substeps.get(state, []),
             }
         
-        elif task.state in ["Analyze", "Synthesize", "Conclude"]:
+        elif state in ["Analyze", "Synthesize", "Conclude"]:
             # Get selected papers from input_data
-            selected_papers_links = task.input_data.get("selected_papers", [])
+            selected_papers_links = input_data.get("selected_papers", [])
             if selected_papers_links:
-                task.research_papers = [paper for paper in task.research_papers if paper.link in selected_papers_links]
-                logger.info(f"Using {len(task.research_papers)} selected research papers for '{task.state}' step.")
+                research_papers = [paper for paper in research_papers if paper.link in selected_papers_links]
+                logger.info(f"Using {len(research_papers)} selected research papers for '{state}' step.")
             else:
-                logger.info(f"No selected papers provided. Using all {len(task.research_papers)} research papers for '{task.state}' step.")
+                logger.info(f"No selected papers provided. Using all {len(research_papers)} research papers for '{state}' step.")
             
             prompt = (
-                f"Task Description: {task.task_description}\n"
-                f"Current State: {task.state}\n"
-                f"Input Data: {task.input_data}\n"
+                f"Task Description: {task_description}\n"
+                f"Current State: {state}\n"
+                f"Input Data: {input_data}\n"
                 f"Research Papers:\n"
             )
-            for paper in task.research_papers:
+            for paper in research_papers:
                 prompt += f"- {paper.title} ({paper.link})\n"
             
-            if task.state == "Analyze":
+            if state == "Analyze":
                 prompt += "Provide an analysis based on the above research papers."
-            elif task.state == "Synthesize":
+            elif state == "Synthesize":
                 prompt += "Synthesize the information from the above research papers."
-            elif task.state == "Conclude":
+            elif state == "Conclude":
                 prompt += (
                     "\nBased on the above research, please provide a comprehensive conclusion.\n"
                     "Break down the key insights into bullet points, and for each bullet point, "
@@ -320,15 +341,15 @@ async def solve_task(task: Task):
                     "If no information is found to answer the question, please respond with 'No information found in the research papers provided.'"
                 )
             
-            current_steps = state_substeps.get(task.state, [])
-            logger.info(f"Executing {task.state} steps:")
+            current_steps = state_substeps.get(state, [])
+            logger.info(f"Executing {state} steps:")
             for step in current_steps:
                 logger.info(f"Step: {step}")
                 # Implement actual step execution logic here
             
             action = query_openai(prompt)
-            next_state = state_transitions.get(task.state, "End")
-            logger.info(f"Transitioning from '{task.state}' to '{next_state}'")
+            next_state = state_transitions.get(state, "End")
+            logger.info(f"Transitioning from '{state}' to '{next_state}'")
             return {
                 "state": next_state,
                 "response": action,
@@ -336,7 +357,7 @@ async def solve_task(task: Task):
             }
         
         else:
-            logger.warning(f"Unknown state '{task.state}'. Ending task.")
+            logger.warning(f"Unknown state '{state}'. Ending task.")
             return {
                 "state": "End",
                 "response": "Task completed.",
