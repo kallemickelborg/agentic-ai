@@ -7,7 +7,20 @@ import os
 import logging
 from dotenv import load_dotenv
 
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
+
+origins = ["https://agentic-ai-frontend.onrender.com"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configure Logging
 logging.basicConfig(
@@ -358,14 +371,6 @@ def solve_task(task: Task):
             "response": "An unexpected error occurred. Please try again later.",
             "current_steps": state_substeps.get("End", [])
         }
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=['*'],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 if __name__ == "__main__":
     import uvicorn
