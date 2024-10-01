@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from openai import OpenAI
 
 app = FastAPI()
 
@@ -99,6 +100,8 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
     logger.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
     raise EnvironmentError("OpenAI API key not found.")
+
+client = OpenAI()
 
 def fetch_research_papers(query: str, max_results: int = 20):
     """
@@ -194,23 +197,20 @@ def query_openai(prompt: str, sources: list):
         return "An error occurred while communicating with OpenAI."
 
 def query_openai_questions(prompt: str):
-    """
-    Use OpenAI to generate clarifying yes/no questions.
-    """
     logger.info(f"Querying OpenAI with prompt: {prompt}")
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "user", "content": prompt}
             ],
             max_tokens=150
         )
-        questions_text = response.choices[0].message['content'].strip()
+        questions_text = response.choices[0].message.content.strip()
         logger.info(f"OpenAI response: {questions_text}")
         questions = questions_text.split('\n')
         return [q.strip() for q in questions if q.strip()]
-    except openai.error.OpenAIError as e:
+    except Exception as e:
         logger.error(f"OpenAI API error: {e}")
         return ["An error occurred while generating questions."]
 
