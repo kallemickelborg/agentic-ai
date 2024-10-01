@@ -45,10 +45,9 @@ class Paper(BaseModel):
 class Task(BaseModel):
     state: str
     input_data: dict
-    task_description: str  # New field for task description
-    research_papers: list[Paper] = []  # New field to store research papers
-    clarifying_questions: list[str] = []  # Add this field
-    # No need to store answers here; they can be part of input_data
+    task_description: str
+    research_papers: list[Paper] = []
+    # Removed clarifying_questions field as it's not being used
 
 # StateFlow framework to reflect research process
 state_transitions = {
@@ -249,11 +248,10 @@ async def solve_task(task: Task):
         input_data = task.input_data
         task_description = task.task_description
         research_papers = task.research_papers
-        clarifying_questions = task.clarifying_questions
 
         if state == "Init":
             # Transition from Init to Clarify
-            next_state = state_transitions.get(state, "End")
+            next_state = "Clarify"
             current_steps = state_substeps.get(state, [])
             logger.info(f"Transitioning from 'Init' to '{next_state}'")
             return {
@@ -263,7 +261,7 @@ async def solve_task(task: Task):
             }
         
         elif state == "Clarify":
-            if "clarify_answers" not in input_data or not input_data["clarify_answers"]:
+            if not input_data.get("clarify_answers"):
                 # Generate clarifying questions
                 prompt = f"You are an Agentic AI Dietician. Ask 2-3 critical follow-up questions that can be answered with 'Yes' or 'No' to make the user's research prompt more specific. Ensure that the questions are strictly yes/no and won't require further elaboration. The user's prompt is: '{task_description}'"
                 logger.info(f"Generating clarifying questions. Prompt: {prompt}")
@@ -281,50 +279,33 @@ async def solve_task(task: Task):
                 logger.info(f"Processing clarifying answers: {input_data['clarify_answers']}")
                 enhanced_query = enhance_query(task_description, input_data.get("clarify_answers", []))
                 logger.info(f"Enhanced query: {enhanced_query}")
-                # Use the enhanced query to fetch research papers
-                papers = fetch_research_papers(enhanced_query, max_results=20)
-                logger.info(f"Fetched {len(papers)} research papers")
-                research_papers = papers
                 next_state = "Research"
                 logger.info(f"Transitioning from 'Clarify' to '{next_state}'")
                 return {
                     "state": next_state,
-                    "response": "Research papers fetched based on your refined query. Please select the papers you want to include and click 'Proceed with Selected Papers'.",
-                    "research_papers": papers,
+                    "response": "Clarification complete. Proceeding to research.",
                     "current_steps": state_substeps.get(next_state, []),
                 }
         
         elif state == "Research":
-            # Combine user's prompt with answers to generate enhanced query
+            # Fetch research papers
             enhanced_query = enhance_query(task_description, input_data.get("clarify_answers", []))
             papers = fetch_research_papers(enhanced_query, max_results=20)
             logger.info(f"Fetched {len(papers)} research papers")
-            research_papers = papers
-            # Stay in 'Research' state to allow paper selection
-            next_state = state  # Do not transition yet
-            logger.info(f"Staying in 'Research' state to allow paper selection")
             return {
-                "state": next_state,
-                "response": "Research papers fetched. Please select the papers you want to include and click 'Proceed with Selected Papers'.",
+                "state": "Research",
+                "response": "Research papers fetched. Please select the papers you want to include.",
                 "research_papers": papers,
                 "current_steps": state_substeps.get(state, []),
             }
         
         elif state in ["Analyze", "Synthesize", "Conclude"]:
-            # Get selected papers from input_data
+            # Process the current state
             selected_papers_links = input_data.get("selected_papers", [])
             if selected_papers_links:
                 research_papers = [paper for paper in research_papers if paper.link in selected_papers_links]
-                logger.info(f"Using {len(research_papers)} selected research papers for '{state}' step.")
-            else:
-                logger.info(f"No selected papers provided. Using all {len(research_papers)} research papers for '{state}' step.")
             
-            prompt = (
-                f"Task Description: {task_description}\n"
-                f"Current State: {state}\n"
-                f"Input Data: {input_data}\n"
-                f"Research Papers:\n"
-            )
+            prompt = f"Task Description: {task_description}\nCurrent State: {state}\n"
             for paper in research_papers:
                 prompt += f"- {paper.title} ({paper.link})\n"
             
@@ -333,19 +314,7 @@ async def solve_task(task: Task):
             elif state == "Synthesize":
                 prompt += "Synthesize the information from the above research papers."
             elif state == "Conclude":
-                prompt += (
-                    "\nBased on the above research, please provide a comprehensive conclusion.\n"
-                    "Break down the key insights into bullet points, and for each bullet point, "
-                    "include the associated reference citation (link)."
-                    "Do NOT use any other information other than the research papers in question."
-                    "If no information is found to answer the question, please respond with 'No information found in the research papers provided.'"
-                )
-            
-            current_steps = state_substeps.get(state, [])
-            logger.info(f"Executing {state} steps:")
-            for step in current_steps:
-                logger.info(f"Step: {step}")
-                # Implement actual step execution logic here
+                prompt += "Based on the above research, provide a comprehensive conclusion."
             
             action = query_openai(prompt)
             next_state = state_transitions.get(state, "End")
@@ -353,7 +322,7 @@ async def solve_task(task: Task):
             return {
                 "state": next_state,
                 "response": action,
-                "current_steps": current_steps
+                "current_steps": state_substeps.get(state, [])
             }
         
         else:
@@ -363,6 +332,7 @@ async def solve_task(task: Task):
                 "response": "Task completed.",
                 "current_steps": state_substeps.get("End", [])
             }
+
     except Exception as e:
         logger.error(f"Error in solve_task: {str(e)}", exc_info=True)
         return {

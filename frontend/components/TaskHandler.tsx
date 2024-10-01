@@ -101,12 +101,10 @@ export default function TaskSolver() {
       setTaskState(result.data.state);
 
       if (result.data.research_papers) {
-        console.log('Setting Research Papers:', result.data.research_papers);
         setResearchPapers(result.data.research_papers);
       }
 
       if (result.data.current_steps) {
-        console.log('Setting Current Steps:', result.data.current_steps);
         setCurrentSteps(result.data.current_steps);
       }
 
@@ -115,13 +113,12 @@ export default function TaskSolver() {
         setClarifyAnswers(result.data.questions.map((q: string) => ({ question: q, answer: '' })));
       }
 
-      setToast({ message: 'Step completed successfully!', type: 'success' });
+      // Don't automatically trigger the next state
+      setIsLoading(false);
     } catch (error) {
       console.error('Error during task processing:', error);
       setResponse('An error occurred while processing your request.');
       setToast({ message: 'An error occurred while processing your request.', type: 'error' });
-    } finally {
-      setIsLoading(false);
     }
   };
 
