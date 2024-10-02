@@ -219,7 +219,7 @@ export default function TaskSolver() {
 
         {taskState === 'Clarify' && (
           <div className="mb-6">
-            <Typography variant="h2">Clarifying Questions:</Typography>
+            <Typography variant="h2" className="text-indigo-600">Clarifying Questions</Typography>
             {clarifyingQuestions.map((question, index) => (
               <div key={index} className="mb-4">
                 <Label className="block mb-2">{question}</Label>
@@ -295,7 +295,7 @@ export default function TaskSolver() {
           {/* Show paper selection only during Research state */}
           {taskState === 'Research' && researchPapers.length > 0 && (
             <div className="mt-6">
-              <Typography variant="h3">Select Research Papers</Typography>
+              <Typography variant="h3" className="text-indigo-600">Select Research Papers</Typography>
               <List className="paperList">
                 {researchPapers.map((paper, index) => (
                   <ListItem key={index} className="paperItem">
@@ -333,7 +333,7 @@ export default function TaskSolver() {
           {/* Display selected papers in other states */}
           {taskState !== 'Research' && selectedPapers.length > 0 && (
             <div className="mt-6">
-              <Typography variant="h3">Selected Research Papers:</Typography>
+              <Typography variant="h3" className="text-indigo-600">Selected Research Papers</Typography>
               <List className="paperList">
                 {researchPapers
                   .filter(paper => selectedPapers.includes(paper.link))
