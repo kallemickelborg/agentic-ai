@@ -7,7 +7,7 @@
     return (
       <input
         {...props}
-        className="mt-1 w-full border-2 border-gray-300 rounded-md p-2 rounded-lg shadow-lg"
+        className="border p-2 w-full"
       />
     );
   };

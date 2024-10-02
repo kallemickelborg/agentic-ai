@@ -52,7 +52,7 @@ class Task(BaseModel):
 
 # StateFlow framework to reflect research process
 state_transitions = {
-    "Init": "Clarify",
+    "Start": "Clarify",
     "Clarify": "Research",
     "Research": "Analyze",
     "Analyze": "Synthesize",
@@ -62,7 +62,7 @@ state_transitions = {
 
 # Define substeps for each state
 state_substeps = {
-    "Init": [
+    "Start": [
         "Initializing the research assistant.",
         "Setting up the environment."
     ],
@@ -242,11 +242,11 @@ async def solve_task(task: Task):
         task_description = task.task_description
         research_papers = task.research_papers
 
-        if state == "Init":
-            # Transition from Init to Clarify
+        if state == "Start":
+            # Transition from Start to Clarify
             next_state = "Clarify"
             current_steps = state_substeps.get(state, [])
-            logger.info(f"Transitioning from 'Init' to '{next_state}'")
+            logger.info(f"Transitioning from 'Start' to '{next_state}'")
             return {
                 "state": next_state,
                 "response": "Analyzing your prompt to generate clarifying questions.",

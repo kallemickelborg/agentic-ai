@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-const steps = ['Init', 'Clarify', 'Research', 'Analyze', 'Synthesize', 'Conclude', 'End'];
+const steps = ['Start', 'Clarify', 'Research', 'Analyze', 'Synthesize', 'Conclude', 'End'];
 
 interface StepIndicatorProps {
   currentState: string;
@@ -16,10 +16,10 @@ export default function StepIndicator({ currentState }: StepIndicatorProps) {
           <motion.div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-white ${
               index < currentStepIndex
-                ? 'bg-green-500'
+                ? 'bg-indigo-600'
                 : index === currentStepIndex
-                ? 'bg-blue-500'
-                : 'bg-gray-400'
+                ? 'bg-indigo-600'
+                : 'bg-gray-200'
             }`}
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -27,7 +27,7 @@ export default function StepIndicator({ currentState }: StepIndicatorProps) {
           >
             {index + 1}
           </motion.div>
-          <span className="text-sm mt-2">{label}</span>
+          <span className="text-xs mt-2">{label}</span>
         </div>
       ))}
     </div>

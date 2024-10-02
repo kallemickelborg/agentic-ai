@@ -5,7 +5,7 @@
 
   const Label: React.FC<LabelProps> = ({ children, ...props }) => {
     return (
-      <label {...props} className="block text-sm font-medium text-gray-700">
+      <label {...props} className="block text-xs mb-2">
         {children}
       </label>
     );

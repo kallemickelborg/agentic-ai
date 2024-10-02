@@ -5,7 +5,7 @@
 
 /* Custom styles */
 body {
-  @apply bg-gray-900 text-white; /* Dark background and white text */
+  @apply bg-white text-black; /* Dark background and white text */
 }
 
 @layer base {
@@ -69,6 +69,21 @@ body {
   --foreground: #171717;
 }
 
+li {
+  list-style: none;
+}
+
 @media (prefers-color-scheme: dark) {
   /* Optionally, you can handle dark mode preferences here */
+}
+
+.paperItem {
+  align-items: center;
+}
+
+.paperCheckbox {
+  align-self: center;
+  width: 25px;
+  height: 25px;
+  margin-right: 2.5%;
 }

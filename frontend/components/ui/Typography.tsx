@@ -7,13 +7,15 @@
 
   const Typography: React.FC<TypographyProps> = ({ variant, children, ...props }) => {
     const baseClasses = 'font-semibold';
-    const variantClasses = variant === 'h1' 
-      ? 'text-2xl' 
-      : variant === 'h2' 
-        ? 'text-xl' 
-        : variant === 'h3' 
-          ? 'text-lg' 
-          : 'text-base';
+    const variantClasses = variant === 'h1'
+      ? 'text-lg'
+      : variant === 'h2'
+        ? 'text-md'
+        : variant === 'h3'
+          ? 'text-sm'
+          : variant === 'p'
+            ? 'text-xs'
+            : 'text-base';
 
     const Component = variant.startsWith('h') ? variant : 'p';
 
