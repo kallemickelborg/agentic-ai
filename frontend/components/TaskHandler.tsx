@@ -366,7 +366,7 @@ export default function TaskSolver() {
         )}
 
         {/* Development mode toggle and navigation buttons */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* {process.env.NODE_ENV === 'development' && (
           <div className="mt-4 p-4 bg-gray-100 rounded-lg">
             <label className="flex items-center space-x-2">
               <input
@@ -394,7 +394,7 @@ export default function TaskSolver() {
               </div>
             )}
           </div>
-        )}
+        )} */}
       </motion.div>
     </motion.div>
   );
