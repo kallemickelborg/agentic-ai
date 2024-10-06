@@ -414,7 +414,7 @@ export default function TaskSolver() {
                 <Typography variant="h3" className="mb-2 text-red-600">
                   No research papers found...
                 </Typography>
-                <Typography variant="body1" className="mb-4">
+                <Typography variant="p" className="mb-4">
                   Do you want to start over?
                 </Typography>
                 <Button onClick={handleRestart} variant="primary">
