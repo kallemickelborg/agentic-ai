@@ -131,7 +131,7 @@ def fetch_research_papers(query: str, max_results: int = 20):
     
     full_search_url = search_url + '?' + urllib.parse.urlencode(search_params)
     logger.info(f"Full PubMed search URL: {full_search_url}")
-    
+
     search_response = requests.get(search_url, params=search_params)
     
     if search_response.status_code != 200:
@@ -222,10 +222,25 @@ def enhance_search_query(query: str) -> str:
     """
     Enhance the search query to improve relevance of results.
     """
+    # Remove any text within square brackets
     cleaned_query = re.sub(r'\[.*?\]', '', query).strip()
     
-    enhanced_query = f"({cleaned_query})"
+    # Split the query into words
+    words = cleaned_query.split()
     
+    # Combine words into phrases (2-3 words) and individual words
+    phrases = []
+    for i in range(len(words)):
+        phrases.append(words[i])
+        if i < len(words) - 1:
+            phrases.append(f'"{words[i]} {words[i+1]}"')
+        if i < len(words) - 2:
+            phrases.append(f'"{words[i]} {words[i+1]} {words[i+2]}"')
+    
+    # Join phrases with OR
+    enhanced_query = " OR ".join(phrases)
+    
+    # Add date restriction
     enhanced_query += " AND (\"last 5 years\"[PDat])"
     
     return enhanced_query
