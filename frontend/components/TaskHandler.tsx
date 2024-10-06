@@ -36,7 +36,6 @@ interface Task {
   research_papers: Paper[];
 }
 
-// Placeholder data
 const placeholderData = {
   clarifyingQuestions: [
     "Are you interested in benefits related to bone health?",
@@ -56,6 +55,10 @@ const placeholderData = {
 interface ClarifyAnswer {
   question: string;
   answer: string;
+}
+
+interface Question {
+  question: string;
 }
 
 export default function TaskSolver() {
@@ -140,8 +143,8 @@ export default function TaskSolver() {
       }
 
       if (result.data.questions) {
-        setClarifyingQuestions(result.data.questions);
-        setClarifyAnswers(result.data.questions.map(q => ({ question: q, answer: '' })));
+        setClarifyingQuestions(result.data.questions as string[]);
+        setClarifyAnswers((result.data.questions as string[]).map((q: string) => ({ question: q, answer: '' })));
       }
 
       if (result.data.restart) {
