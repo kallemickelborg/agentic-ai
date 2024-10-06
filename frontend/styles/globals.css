@@ -85,5 +85,12 @@ li {
   align-self: center;
   width: 25px;
   height: 25px;
-  margin-right: 2.5%;
+  margin: auto;
+}
+
+.paperContent {
+  line-break: auto;
+  line-height: 1;
+  width: 90%;
+  margin-left: auto;
 }

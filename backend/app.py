@@ -7,6 +7,10 @@ import requests
 import os
 import logging
 from dotenv import load_dotenv
+import xml.etree.ElementTree as ET
+import urllib.parse
+import re
+import traceback
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +18,11 @@ from openai import OpenAI
 
 app = FastAPI()
 
-origins = ["https://agentic-ai-frontend.onrender.com"]
+origins = [
+    "https://agentic-ai-frontend.onrender.com",
+    "http://localhost:3000",
+    "http://localhost:8000",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,7 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure Logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -42,15 +49,14 @@ class Paper(BaseModel):
     link: str
     authors: list[Author] = []
     published_date: str = ""
+    abstract: Optional[str] = None
 
 class Task(BaseModel):
     state: str
     input_data: dict
     task_description: str
     research_papers: list[Paper] = []
-    # Removed clarifying_questions field as it's not being used
 
-# StateFlow framework to reflect research process
 state_transitions = {
     "Start": "Clarify",
     "Clarify": "Research",
@@ -60,7 +66,7 @@ state_transitions = {
     "Conclude": "End"
 }
 
-# Define substeps for each state
+# Might need to remove this
 state_substeps = {
     "Start": [
         "Initializing the research assistant.",
@@ -92,10 +98,8 @@ state_substeps = {
     ]
 }
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Securely set your OpenAI API key using environment variables
 openai.api_key = os.getenv("OPENAI_API_KEY")
 if not openai.api_key:
     logger.error("OpenAI API key not found. Please set the OPENAI_API_KEY environment variable.")
@@ -107,67 +111,124 @@ def fetch_research_papers(query: str, max_results: int = 20):
     """
     Fetch research papers related to the query using PubMed E-utilities API.
     """
-    logger.info(f"Fetching research papers for query: '{query}'")
+    logger.info(f"Original query: '{query}'")
     
-    # PubMed E-utilities API URL
-    url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-    params = {
+    cleaned_query = clean_query(query)
+    enhanced_query = enhance_search_query(cleaned_query)
+    logger.info(f"Enhanced query: '{enhanced_query}'")
+    
+    base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+    
+    search_url = f"{base_url}esearch.fcgi"
+    search_params = {
         'db': 'pubmed',
-        'term': query,
+        'term': enhanced_query,
         'retmax': max_results,
-        'retmode': 'json'
+        'sort': 'relevance',
+        'retmode': 'json',
+        'usehistory': 'y'
     }
-    response = requests.get(url, params=params)
     
-    if response.status_code != 200:
-        logger.error(f"Failed to fetch research papers: {response.status_code}")
+    full_search_url = search_url + '?' + urllib.parse.urlencode(search_params)
+    logger.info(f"Full PubMed search URL: {full_search_url}")
+    
+    search_response = requests.get(search_url, params=search_params)
+    
+    if search_response.status_code != 200:
+        logger.error(f"Failed to fetch research papers: {search_response.status_code}")
+        logger.error(f"Response content: {search_response.text}")
         return []
     
-    data = response.json()
-    id_list = data.get('esearchresult', {}).get('idlist', [])
+    search_data = search_response.json()
+    logger.info(f"Search response: {search_data}")
+    
+    id_list = search_data.get('esearchresult', {}).get('idlist', [])
+    query_key = search_data.get('esearchresult', {}).get('querykey')
+    web_env = search_data.get('esearchresult', {}).get('webenv')
     
     if not id_list:
         logger.info("No research papers found.")
-        return []
+        raise HTTPException(status_code=204, detail="No research papers found")
     
-    # Fetch details for each paper
-    ids = ','.join(id_list)
-    details_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
-    details_params = {
+    logger.info(f"Number of papers found: {len(id_list)}")
+    
+    efetch_url = f"{base_url}efetch.fcgi"
+    efetch_params = {
         'db': 'pubmed',
-        'id': ids,
-        'retmode': 'json'
+        'query_key': query_key,
+        'WebEnv': web_env,
+        'retmode': 'xml',
+        'retmax': max_results
     }
-    details_response = requests.get(details_url, params=details_params)
+    efetch_response = requests.get(efetch_url, params=efetch_params)
     
-    if details_response.status_code != 200:
-        logger.error(f"Failed to fetch research paper details: {details_response.status_code}")
+    if efetch_response.status_code != 200:
+        logger.error(f"Failed to fetch research paper details: {efetch_response.status_code}")
+        logger.error(f"Response content: {efetch_response.text}")
         return []
     
-    details_data = details_response.json()
+    root = ET.fromstring(efetch_response.content)
     papers = []
     
-    for uid in id_list:
-        item = details_data.get('result', {}).get(uid, {})
-        title = item.get('title', 'No title available')
-        link = f"https://pubmed.ncbi.nlm.nih.gov/{uid}"
+    for article in root.findall('.//PubmedArticle'):
+        title_elem = article.find('.//ArticleTitle')
+        title = title_elem.text if title_elem is not None else 'No title available'
+        
+        abstract_elem = article.find('.//AbstractText')
+        abstract = abstract_elem.text if abstract_elem is not None else ''
+        
+        pmid_elem = article.find('.//PMID')
+        pmid = pmid_elem.text if pmid_elem is not None else 'No PMID available'
+        
         authors = [
-            Author(name=author.get('name', 'Unknown'))
-            for author in item.get('authors', [])
+            f"{author.find('LastName').text if author.find('LastName') is not None else ''} "
+            f"{author.find('ForeName').text if author.find('ForeName') is not None else ''}".strip()
+            for author in article.findall('.//Author')
         ]
-        published_date = item.get('pubdate', 'Date not available')
+        
+        pub_date = article.find('.//PubDate')
+        if pub_date is not None:
+            year = pub_date.find('Year')
+            month = pub_date.find('Month')
+            day = pub_date.find('Day')
+            published_date = f"{year.text if year is not None else ''}-{month.text if month is not None else ''}-{day.text if day is not None else ''}"
+        else:
+            published_date = 'Date not available'
         
         papers.append(
             Paper(
                 title=title,
-                link=link,
-                authors=authors,
-                published_date=published_date
+                link=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}",
+                authors=[Author(name=author) for author in authors],
+                published_date=published_date,
+                abstract=abstract
             )
         )
     
-    logger.info(f"Successfully fetched {len(papers)} research papers.")
+    logger.info(f"Successfully fetched and parsed {len(papers)} research papers.")
     return papers
+
+def clean_query(query: str) -> str:
+    """
+    Clean the query by removing any AI-generated prefixes or unwanted phrases.
+    """
+    cleaned = re.sub(r'^(Optimized research query:|Enhanced query:)\s*', '', query, flags=re.IGNORECASE)
+    
+    cleaned = re.sub(r'^"(.*)"$', r'\1', cleaned.strip())
+    
+    return cleaned.strip()
+
+def enhance_search_query(query: str) -> str:
+    """
+    Enhance the search query to improve relevance of results.
+    """
+    cleaned_query = re.sub(r'\[.*?\]', '', query).strip()
+    
+    enhanced_query = f"({cleaned_query})"
+    
+    enhanced_query += " AND (\"last 5 years\"[PDat])"
+    
+    return enhanced_query
 
 def query_openai(prompt: str):
     """
@@ -176,9 +237,9 @@ def query_openai(prompt: str):
     logger.info("Sending prompt to OpenAI...")
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=500
+            max_tokens=1024
         )
         logger.info("Received response from OpenAI.")
         return response.choices[0].message.content.strip()
@@ -190,11 +251,11 @@ def query_openai_questions(prompt: str):
     logger.info(f"Querying OpenAI with prompt: {prompt}")
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=150
+            max_tokens=256
         )
         questions_text = response.choices[0].message.content.strip()
         logger.info(f"OpenAI response: {questions_text}")
@@ -218,12 +279,12 @@ Clarifying questions and answers:
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant that optimizes research queries."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=100
+            max_tokens=256
         )
         enhanced_query = response.choices[0].message.content.strip()
         logger.info(f"Enhanced query: {enhanced_query}")
@@ -243,60 +304,122 @@ async def solve_task(task: Task):
         research_papers = task.research_papers
 
         if state == "Start":
-            # Transition from Start to Clarify
             next_state = "Clarify"
             current_steps = state_substeps.get(state, [])
             logger.info(f"Transitioning from 'Start' to '{next_state}'")
             return {
                 "state": next_state,
-                "response": "Analyzing your prompt to generate clarifying questions.",
                 "current_steps": current_steps
             }
         
         elif state == "Clarify":
-            if not input_data.get("clarify_answers"):
-                # Generate clarifying questions
-                prompt = f"You are an Agentic AI Dietician. Ask 2-3 critical follow-up questions that can be answered with 'Yes' or 'No' to make the user's research prompt more specific. Ensure that the questions are strictly yes/no and won't require further elaboration. The user's prompt is: '{task_description}'"
-                logger.info(f"Generating clarifying questions. Prompt: {prompt}")
-                questions = query_openai_questions(prompt)
-                logger.info(f"Generated questions: {questions}")
-                current_steps = state_substeps.get(state, [])
-                return {
-                    "state": "Clarify",
-                    "response": "Please answer the following questions to refine your research query:",
-                    "questions": questions,
-                    "current_steps": current_steps
-                }
-            else:
-                # Process answers and enhance query
-                logger.info(f"Processing clarifying answers: {input_data['clarify_answers']}")
-                enhanced_query = enhance_query(task_description, input_data.get("clarify_answers", []))
-                logger.info(f"Enhanced query: {enhanced_query}")
-                next_state = "Research"
-                logger.info(f"Transitioning from 'Clarify' to '{next_state}'")
-                return {
-                    "state": next_state,
-                    "response": "Clarification complete. Proceeding to research.",
-                    "current_steps": state_substeps.get(next_state, []),
-                }
+            prompt = f"""
+                Given the research topic: "{task_description}", generate 3-5 clarifying questions that can be answered with a simple 'Yes' or 'No'.
+
+                These questions should help narrow down the scope of the research and clarify the user's specific interests within the topic.
+
+                Each question should:
+                1. Be directly related to the research topic
+                2. Be answerable with only 'Yes' or 'No'
+                3. Start with words like 'Are', 'Is', 'Do', 'Does', 'Can', 'Will', or 'Should'
+                4. Help focus the research direction
+
+                Example format:
+                1. Are you interested in [specific aspect of the topic]?
+                2. Do you want to focus on [particular area within the topic]?
+                3. Should the research include [specific consideration]?
+
+                Please generate the questions now:
+                """
+            logger.info(f"Generating clarifying questions. Prompt: {prompt}")
+            questions = query_openai_questions(prompt)
+            logger.info(f"Generated questions: {questions}")
+            current_steps = state_substeps.get(state, [])
+            return {
+                "state": "Clarify",
+                "questions": questions,
+                "current_steps": current_steps
+            }
         
         elif state == "Research":
-            # Fetch research papers
             enhanced_query = enhance_query(task_description, input_data.get("clarify_answers", []))
             papers = fetch_research_papers(enhanced_query, max_results=20)
             logger.info(f"Fetched {len(papers)} research papers")
             return {
                 "state": "Research",
-                "response": "Research papers fetched. Please select the papers you want to include.",
                 "research_papers": papers,
                 "current_steps": state_substeps.get(state, []),
             }
         
-        elif state in ["Analyze", "Synthesize", "Conclude"]:
-            # Process the current state
+        elif state == "Analyze":
             selected_papers_links = input_data.get("selected_papers", [])
-            if selected_papers_links:
-                research_papers = [paper for paper in research_papers if paper.link in selected_papers_links]
+            if not selected_papers_links:
+                logger.warning("No papers selected for analysis.")
+                return {
+                    "state": "Error",
+                    "error_message": "No papers have been selected for analysis.",
+                    "current_steps": []
+                }
+            
+            research_papers = [paper for paper in research_papers if paper.link in selected_papers_links]
+            if not research_papers:
+                logger.warning("Selected papers not found in research_papers.")
+                return {
+                    "state": "Error",
+                    "error_message": "Selected papers not found for analysis.",
+                    "current_steps": []
+                }
+            
+            if len(research_papers) < 2:
+                logger.warning("Not enough papers selected for a conclusive analysis.")
+                return {
+                    "state": "Error",
+                    "error_message": "Based on the papers, not enough information is provided to conclude anything based on the prompt.",
+                    "current_steps": []
+                }
+            
+            prompt = f"Task Description: {task_description}\nCurrent State: {state}\n"
+            for paper in research_papers:
+                prompt += f"- {paper.title} ({paper.link})\n"
+            
+            prompt += "Provide an analysis based on the above research papers."
+            
+            action = query_openai(prompt)
+            
+            if len(action.split()) < 50:
+                logger.warning("Analysis is not conclusive.")
+                return {
+                    "state": "Error",
+                    "error_message": "Based on the papers, not enough information is provided to conclude anything based on the prompt.",
+                    "current_steps": []
+                }
+            
+            next_state = state_transitions.get(state, "End")
+            logger.info(f"Transitioning from '{state}' to '{next_state}'")
+            return {
+                "state": next_state,
+                "response": action,
+                "current_steps": state_substeps.get(state, [])
+            }
+        
+        elif state in ["Synthesize", "Conclude"]:
+            selected_papers_links = input_data.get("selected_papers", [])
+            if not selected_papers_links:
+                logger.warning("No papers selected for analysis.")
+                return {
+                    "state": "Error",
+                    "error_message": "No papers have been selected for analysis.",
+                    "current_steps": []
+                }
+            
+            research_papers = [paper for paper in research_papers if paper.link in selected_papers_links]
+            if not research_papers:
+                logger.warning("Selected papers not found in research_papers.")
+                return {
+                    "state": "Error",
+                    "error_message": "Selected papers not found for analysis.",
+                    "current_steps": []
+                }
             
             prompt = f"Task Description: {task_description}\nCurrent State: {state}\n"
             for paper in research_papers:
@@ -310,6 +433,15 @@ async def solve_task(task: Task):
                 prompt += "Based on the above research, provide a comprehensive conclusion."
             
             action = query_openai(prompt)
+            
+            if len(action.split()) < 50:
+                logger.warning("Analysis is not conclusive.")
+                return {
+                    "state": "Error",
+                    "error_message": "Based on the papers, not enough information is provided to conclude anything based on the prompt.",
+                    "current_steps": []
+                }
+            
             next_state = state_transitions.get(state, "End")
             logger.info(f"Transitioning from '{state}' to '{next_state}'")
             return {
@@ -322,17 +454,17 @@ async def solve_task(task: Task):
             logger.warning(f"Unknown state '{state}'. Ending task.")
             return {
                 "state": "End",
-                "response": "Task completed.",
                 "current_steps": state_substeps.get("End", [])
             }
-
+    
+    except HTTPException as e:
+        if e.status_code == 204:
+            return {"message": "No research papers found", "restart": True}
+        raise e
     except Exception as e:
-        logger.error(f"Error in solve_task: {str(e)}", exc_info=True)
-        return {
-            "state": "End",
-            "response": "An unexpected error occurred. Please try again later.",
-            "current_steps": state_substeps.get("End", [])
-        }
+        logger.error(f"Error in solve_task: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

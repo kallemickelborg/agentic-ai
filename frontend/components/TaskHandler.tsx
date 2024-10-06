@@ -53,6 +53,11 @@ const placeholderData = {
   conclusionResponse: "In conclusion, Vitamin D3 offers significant benefits, particularly in bone health. However, more research is needed to...",
 };
 
+interface ClarifyAnswer {
+  question: string;
+  answer: string;
+}
+
 export default function TaskSolver() {
   const [taskState, setTaskState] = useState('Start');
   const [taskDescription, setTaskDescription] = useState('');
@@ -63,8 +68,9 @@ export default function TaskSolver() {
   const [currentSteps, setCurrentSteps] = useState<string[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [clarifyingQuestions, setClarifyingQuestions] = useState<string[]>([]);
-  const [clarifyAnswers, setClarifyAnswers] = useState<{ question: string; answer: string }[]>([]);
+  const [clarifyAnswers, setClarifyAnswers] = useState<ClarifyAnswer[]>([]);
   const [isDevMode, setIsDevMode] = useState(false);
+  const [noResultsFound, setNoResultsFound] = useState(false);
 
   const handleSelectPaper = (link: string) => {
     setSelectedPapers(prev =>
@@ -89,6 +95,7 @@ export default function TaskSolver() {
     setIsLoading(true);
     setResponse('');
     setCurrentSteps([]);
+    setNoResultsFound(false);
 
     try {
       let nextState = taskState;
@@ -115,6 +122,12 @@ export default function TaskSolver() {
 
       console.log('Server Response:', result.data);
 
+      if (result.data.state === 'Error') {
+        setToast({ message: result.data.error_message, type: 'error' });
+        setIsLoading(false);
+        return;
+      }
+
       setResponse(result.data.response);
       setTaskState(result.data.state);
 
@@ -128,26 +141,42 @@ export default function TaskSolver() {
 
       if (result.data.questions) {
         setClarifyingQuestions(result.data.questions);
-        setClarifyAnswers(result.data.questions.map((q: string) => ({ question: q, answer: '' })));
+        setClarifyAnswers(result.data.questions.map(q => ({ question: q, answer: '' })));
       }
 
-      // Don't automatically trigger the next state
+      if (result.data.restart) {
+        setNoResultsFound(true);
+        setTaskState('Start');
+        setClarifyingQuestions([]);
+        setClarifyAnswers([]);
+      }
+
       setIsLoading(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error during task processing:', error);
       setResponse('An error occurred while processing your request.');
       setToast({ message: 'An error occurred while processing your request.', type: 'error' });
+      setIsLoading(false);
     }
   };
 
-  // New effect to handle automatic transitions
+  const handleRestart = () => {
+    setTaskDescription('');
+    setTaskState('Start');
+    setNoResultsFound(false);
+    setClarifyingQuestions([]);
+    setClarifyAnswers([]);
+    setResearchPapers([]);
+    setSelectedPapers([]);
+    setResponse('');
+  };
+
   useEffect(() => {
     if (taskState === 'Research' && researchPapers.length === 0) {
       handleTask();
     }
   }, [taskState]);
 
-  // Function to cycle through states (for development purposes)
   const cycleState = (direction: 'forward' | 'backward') => {
     const states = ['Start', 'Clarify', 'Research', 'Analyze', 'Synthesize', 'Conclude', 'End'];
     const currentIndex = states.indexOf(taskState);
@@ -161,7 +190,6 @@ export default function TaskSolver() {
 
     setTaskState(states[newIndex]);
 
-    // Set placeholder data based on the new state
     switch (states[newIndex]) {
       case 'Clarify':
         setClarifyingQuestions(placeholderData.clarifyingQuestions);
@@ -219,20 +247,102 @@ export default function TaskSolver() {
 
         {taskState === 'Clarify' && (
           <div className="mb-6">
-            <Typography variant="h2" className="text-indigo-600">Clarifying Questions</Typography>
-            {clarifyingQuestions.map((question, index) => (
+            <Typography variant="h2" className="mb-2 text-indigo-600">Clarifying Questions</Typography>
+            {clarifyAnswers.map((qa, index) => (
               <div key={index} className="mb-4">
-                <Label className="block mb-2">{question}</Label>
-                <input
-                  type="text"
-                  value={clarifyAnswers[index]?.answer || ''}
-                  onChange={(e) => handleClarifyAnswer(index, e.target.value)}
-                  className="border p-2 w-full"
-                />
+                <Label className="block mb-2">{qa.question}</Label>
+                <div className="flex space-x-4">
+                  <Button
+                    onClick={() => handleClarifyAnswer(index, 'Yes')}
+                    variant={qa.answer === 'Yes' ? 'primary' : 'secondary'}
+                    className="w-1/2"
+                  >
+                    Yes
+                  </Button>
+                  <Button
+                    onClick={() => handleClarifyAnswer(index, 'No')}
+                    variant={qa.answer === 'No' ? 'primary' : 'secondary'}
+                    className="w-1/2"
+                  >
+                    No
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
         )}
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="mb-8"
+        >
+          {/* Render the response as HTML to support bullet points and links - MIGHT NEED TO CHANGE OR REMOVE */}
+          {response && (
+            <div
+              className="text-xs mb-4"
+              dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br>') }}
+            />
+          )}
+
+          {isLoading && (
+            <div className="mt-6 mb-4">
+              <Skeleton height={30} width={`80%`} />
+              <Skeleton count={3} />
+            </div>
+          )}
+          {/* 
+          {currentSteps.length > 0 && (
+            <div className="mt-6 mb-4">
+              <Typography variant="h2" className="text-indigo-600 mb-2">Current Processing Steps</Typography>
+              <List>
+                {currentSteps.map((step, index) => (
+                  <ListItem key={index} className="p-4 pl-6 bg-gray-200 rounded text-xs text-indigo-600">
+                    {step}
+                  </ListItem>
+                ))}
+              </List>
+            </div>
+          )} */}
+
+          {/* Show paper selection only during Research state */}
+          {taskState === 'Research' && researchPapers.length > 0 && (
+            <div className="mt-6 mb-4">
+              <Typography variant="h2" className="text-indigo-600 mb-2">Select Research Papers</Typography>
+              <List className="paperList">
+                {researchPapers.map((paper, index) => (
+                  <ListItem key={index} className="paperItem">
+                    <label className="flex items-start">
+                      <input
+                        type="checkbox"
+                        className="paperCheckbox"
+                        checked={selectedPapers.includes(paper.link)}
+                        onChange={() => handleSelectPaper(paper.link)}
+                      />
+                      <div className="ml-2 paperContent">
+                        <a
+                          href={paper.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-indigo-600 font-bold"
+                        >
+                          {paper.title}
+                        </a>
+                        <div className="text-xs">
+                          {paper.authors && paper.authors.length > 0
+                            ? `By ${paper.authors.map(author => author.name).join(', ')}`
+                            : 'Authors not available'}
+                          <br />
+                          Published: {paper.published_date || 'Date not available'}
+                        </div>
+                      </div>
+                    </label>
+                  </ListItem>
+                ))}
+              </List>
+            </div>
+          )}
 
         {taskState !== 'End' && (
           <Button
@@ -258,77 +368,6 @@ export default function TaskSolver() {
             )}
           </Button>
         )}
-
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="mt-8"
-        >
-          <Typography variant="h2" className="text-indigo-600">Response</Typography>
-          {/* Render the response as HTML to support bullet points and links */}
-          <div
-            className="prose text-xs"
-            dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br>') }}
-          />
-
-          {isLoading && (
-            <div className="mt-6">
-              <Skeleton height={30} width={`80%`} />
-              <Skeleton count={3} />
-            </div>
-          )}
-
-          {currentSteps.length > 0 && (
-            <div className="mt-6">
-              <Typography variant="h3">Current Processing Steps:</Typography>
-              <List>
-                {currentSteps.map((step, index) => (
-                  <ListItem key={index} className="p-4 pl-6 bg-gray-200 rounded">
-                    {step}
-                  </ListItem>
-                ))}
-              </List>
-            </div>
-          )}
-
-          {/* Show paper selection only during Research state */}
-          {taskState === 'Research' && researchPapers.length > 0 && (
-            <div className="mt-6">
-              <Typography variant="h3" className="text-indigo-600">Select Research Papers</Typography>
-              <List className="paperList">
-                {researchPapers.map((paper, index) => (
-                  <ListItem key={index} className="paperItem">
-                    <label className="flex items-start">
-                      <input
-                        type="checkbox"
-                        className="paperCheckbox"
-                        checked={selectedPapers.includes(paper.link)}
-                        onChange={() => handleSelectPaper(paper.link)}
-                      />
-                      <div className="ml-2">
-                        <a
-                          href={paper.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-indigo-600 font-bold"
-                        >
-                          {paper.title}
-                        </a>
-                        <div className="text-xs">
-                          {paper.authors && paper.authors.length > 0
-                            ? `By ${paper.authors.map(author => author.name).join(', ')}`
-                            : 'Authors not available'}
-                          <br />
-                          Published: {paper.published_date || 'Date not available'}
-                        </div>
-                      </div>
-                    </label>
-                  </ListItem>
-                ))}
-              </List>
-            </div>
-          )}
 
           {/* Display selected papers in other states */}
           {taskState !== 'Research' && selectedPapers.length > 0 && (
@@ -363,6 +402,24 @@ export default function TaskSolver() {
 
         {toast && (
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+        )}
+
+        {taskState === 'Research' && (
+          <div>
+            {noResultsFound && (
+              <div className="mt-4 text-center">
+                <Typography variant="h3" className="mb-2 text-red-600">
+                  No research papers found...
+                </Typography>
+                <Typography variant="body1" className="mb-4">
+                  Do you want to start over?
+                </Typography>
+                <Button onClick={handleRestart} variant="primary">
+                  Restart
+                </Button>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Development mode toggle and navigation buttons */}
