@@ -4,7 +4,7 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_API_BASE_URL: 'http://localhost:8000', //CHANGE THIS TO LOCALHOST WHEN RUNNING LOCALLY (https://agentic-ai-backend.onrender.com)
+    NEXT_PUBLIC_API_BASE_URL: 'https://agentic-ai-backend.onrender.com', //CHANGE THIS TO LOCALHOST WHEN RUNNING LOCALLY (http://localhost:8000)
   },
 //   assetPrefix: './',
 };
