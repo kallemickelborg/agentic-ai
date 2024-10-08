@@ -1,4 +1,5 @@
-# Multilayer Agentic AI
+# Agentic AI Playground
+## Creating a medical research assistant for nutrition using layered AI agents
 
 A working playground for a multilayer AI agent, designed to assist with nutrition research. This project demonstrates the integration of OpenAI's GPT models with a Next.js frontend and a FastAPI backend, all deployed on Render.
 
@@ -47,8 +48,8 @@ This project implements an AI-powered nutrition research assistant. It uses a mu
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/multilayer-agentic-ai.git
-   cd multilayer-agentic-ai
+   git clone https://github.com/kallemickelborg/agentic-ai.git
+   cd agentic-ai
    ```
 
 2. Set up the frontend:
