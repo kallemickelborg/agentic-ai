@@ -1,7 +1,8 @@
 # Agentic AI Playground
+
 ## Creating a medical research assistant for nutrition using layered AI agents
 
-A working playground for a multilayer AI agent, designed to assist with nutrition research. This project demonstrates the integration of OpenAI's GPT models with a Next.js frontend and a FastAPI backend, all deployed on Render.
+A simple human-in-the-loop playground for a multilayer AI agent designed to answer medical research questions with research papers from PubMed. This project demonstrates the integration of OpenAI's GPT models with a Next.js frontend and a FastAPI backend, all deployed on Render.
 
 ## Table of Contents
 
@@ -22,10 +23,10 @@ This project implements an AI-powered nutrition research assistant. It uses a mu
 
 ## Features
 
-- Interactive research query refinement
+- Human-in-the-loop playground for each step of the research process
+- Interactive research query optimization to find relevant research papers in PubMed based on the user's query
 - Automated scientific paper retrieval from PubMed
-- AI-driven analysis and synthesis of research findings
-- Responsive and intuitive user interface
+- Synthesis of research findings rooted in the retrieved papers
 
 ## Tech Stack
 
@@ -47,18 +48,21 @@ This project implements an AI-powered nutrition research assistant. It uses a mu
 ### Installation
 
 1. Clone the repository:
+
    ```
    git clone https://github.com/kallemickelborg/agentic-ai.git
    cd agentic-ai
    ```
 
 2. Set up the frontend:
+
    ```
    cd frontend
    npm install
    ```
 
 3. Set up the backend:
+
    ```
    cd backend
    python -m venv venv
@@ -74,12 +78,14 @@ This project implements an AI-powered nutrition research assistant. It uses a mu
 ## Development
 
 1. Start the backend server:
+
    ```
    cd backend
    uvicorn app:app --reload
    ```
 
 2. In a new terminal, start the frontend development server:
+
    ```
    cd frontend
    npm run dev
@@ -101,7 +107,3 @@ For detailed deployment instructions, refer to the [Render documentation](https:
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

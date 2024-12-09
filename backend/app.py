@@ -135,15 +135,15 @@ conclude_signature = Signature(
 )
 
 # Initialize modules without prompt templates
-clarify_questions_module = ChainOfThought(clarify_questions_signature)
+clarify_questions_module = dspy.ChainOfThought(clarify_questions_signature)
 
-enhance_query_module = ChainOfThought(enhance_query_signature)
+enhance_query_module = dspy.ChainOfThought(enhance_query_signature)
 
-analysis_module = ChainOfThought(analysis_signature)
+analysis_module = dspy.ChainOfThought(analysis_signature)
 
-synthesize_module = ChainOfThought(synthesize_signature)
+synthesize_module = dspy.ChainOfThought(synthesize_signature)
 
-conclude_module = ChainOfThought(conclude_signature)
+conclude_module = dspy.ChainOfThought(conclude_signature)
 
 # Remove or comment out the old initializations that used prompt_template
 # enhance_query_module = ChainOfThought(
@@ -175,7 +175,7 @@ def fetch_research_papers(query: str, max_results: int = 20):
     }
 
     full_search_url = search_url + "?" + urllib.parse.urlencode(search_params)
-    logger.info(f"Full PubMed search URL: {full_search_url}")
+    # logger.info(f"Full PubMed search URL: {full_search_url}")
 
     search_response = requests.get(search_url, params=search_params)
 
@@ -185,14 +185,14 @@ def fetch_research_papers(query: str, max_results: int = 20):
         return []
 
     search_data = search_response.json()
-    logger.info(f"Search response: {search_data}")
+    # logger.info(f"Search response: {search_data}")
 
     id_list = search_data.get("esearchresult", {}).get("idlist", [])
     query_key = search_data.get("esearchresult", {}).get("querykey")
     web_env = search_data.get("esearchresult", {}).get("webenv")
 
     if not id_list:
-        logger.info("No research papers found.")
+        # logger.info("No research papers found.")
         raise HTTPException(status_code=204, detail="No research papers found")
 
     logger.info(f"Number of papers found: {len(id_list)}")
@@ -211,7 +211,7 @@ def fetch_research_papers(query: str, max_results: int = 20):
         logger.error(
             f"Failed to fetch research paper details: {efetch_response.status_code}"
         )
-        logger.error(f"Response content: {efetch_response.text}")
+        # logger.error(f"Response content: {efetch_response.text}")
         return []
 
     root = ET.fromstring(efetch_response.content)
@@ -320,6 +320,7 @@ def enhance_query_with_dspy(
         if hasattr(response, "enhanced_query")
         else original_query
     )
+    print(f"Enhanced query: {response.reasoning}")
     return enhanced_query
 
 
