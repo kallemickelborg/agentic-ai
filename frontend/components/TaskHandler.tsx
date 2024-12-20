@@ -24,6 +24,7 @@ interface Paper {
 	link: string;
 	authors: Author[];
 	published_date: string;
+	relevancy_score?: number;
 }
 
 interface Task {
@@ -375,14 +376,21 @@ export default function TaskSolver() {
 												onChange={() => handleSelectPaper(paper.link)}
 											/>
 											<div className="ml-2 paperContent">
-												<a
-													href={paper.link}
-													target="_blank"
-													rel="noopener noreferrer"
-													className="text-xs text-indigo-600 font-bold"
-												>
-													{paper.title}
-												</a>
+												<div className="flex justify-between items-start">
+													<a
+														href={paper.link}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-xs text-indigo-600 font-bold"
+													>
+														{paper.title}
+													</a>
+													{paper.relevancy_score !== undefined && (
+														<span className="text-xs font-medium ml-2 px-2 py-1 bg-green-100 text-green-800 rounded">
+															Relevancy: {Math.round(paper.relevancy_score)}%
+														</span>
+													)}
+												</div>
 												<div className="text-xs">
 													{paper.authors && paper.authors.length > 0
 														? `By ${paper.authors

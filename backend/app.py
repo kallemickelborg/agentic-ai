@@ -12,7 +12,7 @@ import requests
 from fastapi.middleware.cors import CORSMiddleware
 
 import dspy
-from dspy import ChainOfThought, LM, Signature
+from dspy import InputField, OutputField, ChainOfThought, Signature
 
 app = FastAPI()
 
@@ -47,6 +47,14 @@ class Paper(BaseModel):
     authors: List[Author] = []
     published_date: str = ""
     abstract: Optional[str] = None
+    citation_count: int = 0
+    peer_reviewed: bool = False
+    journal_name: str = ""
+    journal_impact_factor: float = 0.0
+    sciscore: Optional[float] = None
+    study_type: str = ""
+    publication_type: List[str] = []
+    relevancy_score: Optional[float] = None
 
 
 class Task(BaseModel):
@@ -102,54 +110,178 @@ if not openai_api_key:
     raise EnvironmentError("OpenAI API key not found.")
 
 # Initialize DSPy Language Models
-gpt4o_mini = LM("openai/gpt-4o-mini", max_tokens=2000, api_key=openai_api_key)
-gpt4o = LM("openai/gpt-4o", max_tokens=2000, api_key=openai_api_key)
+gpt4o_mini = dspy.LM("openai/gpt-4o-mini", max_tokens=2000, api_key=openai_api_key)
+gpt4o = dspy.LM("openai/gpt-4o", max_tokens=2000, api_key=openai_api_key)
 
 dspy.configure(lm=gpt4o_mini)
 
-clarify_questions_signature = Signature(
-    "task_description -> questions",
-    "Given a research topic, generate 3-5 clarifying questions that can be answered with Yes/No.",
-)
 
-clarify_questions_module = ChainOfThought(clarify_questions_signature)
+# DSPy Signature Classes
+class ClarifyQuestions(dspy.Signature):
+    """Generate clarifying questions for a research topic."""
 
-enhance_query_signature = Signature(
-    "original_query, clarify_answers -> enhanced_query",
-    "Given a query and clarifying answers, generate an enhanced search query.",
-)
+    task_description = dspy.InputField()
+    questions = dspy.OutputField(
+        desc="3-5 clarifying questions that can be answered with Yes/No. The questions should be in the format of 'Do you want to know more about ...?'"
+    )
 
-analysis_signature = Signature(
-    "task_description, state, research_papers -> analysis",
-    "Analyze the research papers in context of the task.",
-)
 
-synthesize_signature = Signature(
-    "task_description, state, research_papers -> synthesis",
-    "Synthesize information from the research papers.",
-)
+class EnhanceQuery(dspy.Signature):
+    """Enhance a search query based on clarifying answers."""
 
-conclude_signature = Signature(
-    "task_description, state, research_papers -> conclusion",
-    "Provide a comprehensive conclusion based on the research.",
-)
+    original_query = dspy.InputField()
+    clarify_answers = dspy.InputField()
+    enhanced_query = dspy.OutputField(desc="An enhanced search query")
 
-# Initialize modules without prompt templates
-clarify_questions_module = dspy.ChainOfThought(clarify_questions_signature)
 
-enhance_query_module = dspy.ChainOfThought(enhance_query_signature)
+class Analysis(dspy.Signature):
+    """Analyze research papers in context of the task."""
 
-analysis_module = dspy.ChainOfThought(analysis_signature)
+    task_description = dspy.InputField()
+    state = dspy.InputField()
+    research_papers = dspy.InputField()
+    analysis = dspy.OutputField(desc="Analysis of the research papers")
 
-synthesize_module = dspy.ChainOfThought(synthesize_signature)
 
-conclude_module = dspy.ChainOfThought(conclude_signature)
+class Synthesize(dspy.Signature):
+    """Synthesize information from research papers."""
 
-# Remove or comment out the old initializations that used prompt_template
-# enhance_query_module = ChainOfThought(
-#     signature=enhance_query_signature,
-#     prompt_template="""...""",
-# )
+    task_description = dspy.InputField()
+    state = dspy.InputField()
+    research_papers = dspy.InputField()
+    synthesis = dspy.OutputField(desc="Synthesized information")
+
+
+class Conclude(dspy.Signature):
+    """Provide a conclusion based on research."""
+
+    task_description = dspy.InputField()
+    state = dspy.InputField()
+    research_papers = dspy.InputField()
+    conclusion = dspy.OutputField(desc="Comprehensive conclusion")
+
+
+class RelevancyScore(dspy.Signature):
+    """Score paper relevancy for a query."""
+
+    paper_title = dspy.InputField()
+    paper_abstract = dspy.InputField()
+    user_query = dspy.InputField()
+    relevancy_score = dspy.OutputField(
+        desc="Score (1-100) based on how well the paper's content matches the query. Consider: 1) Direct relevance to query topic 2) Focus on benefits/effects 3) Specificity to query subject"
+    )
+
+
+class RelevancyScoreBatch(dspy.Signature):
+    """Score multiple papers' relevancy for a query."""
+
+    papers = dspy.InputField()
+    user_query = dspy.InputField()
+    relevancy_scores = dspy.OutputField(
+        desc="List of numeric scores from 1-100, one per paper"
+    )
+
+    @staticmethod
+    def paper_selector(papers: List[Paper], original_query: str) -> List[Paper]:
+        """
+        Select or filter papers based on relevancy_score or other criteria.
+        """
+        logger.info(f"Selecting papers for query: {original_query}")
+        logger.info(f"Total papers to process: {len(papers)}")
+
+        try:
+            # Use the batch scoring module for efficiency
+            response = relevancy_score_batch_module(
+                papers=[{"title": p.title, "abstract": p.abstract} for p in papers],
+                user_query=original_query,
+            )
+
+            # Parse scores more robustly
+            raw_scores = str(response.relevancy_scores).split(",")
+            scores = []
+            for raw_score in raw_scores:
+                try:
+                    # Extract numbers from string and convert to float
+                    number = re.search(r"\d+", raw_score)
+                    score = float(number.group()) if number else 50.0
+                    scores.append(min(100.0, max(1.0, score)))
+                except (AttributeError, ValueError):
+                    scores.append(50.0)  # default score on error
+
+            # Combine papers with their scores
+            scored_papers = list(zip(papers, scores))
+            scored_papers.sort(key=lambda x: x[1], reverse=True)
+
+            # Update papers with scores and return
+            for paper, score in scored_papers:
+                paper.relevancy_score = score
+                logger.info(f"Paper '{paper.title}': score {score}")
+
+            return [p[0] for p in scored_papers]
+
+        except Exception as e:
+            logger.error(f"Error in paper selection: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return papers
+
+
+# Initialize modules
+clarify_questions_module = dspy.ChainOfThought(ClarifyQuestions)
+enhance_query_module = dspy.ChainOfThought(EnhanceQuery)
+analysis_module = dspy.ChainOfThought(Analysis)
+synthesize_module = dspy.ChainOfThought(Synthesize)
+conclude_module = dspy.ChainOfThought(Conclude)
+relevancy_score_module = dspy.ChainOfThought(RelevancyScore)
+relevancy_score_batch_module = dspy.ChainOfThought(RelevancyScoreBatch)
+
+
+# Update RelevancyAgent to use the new modules
+class RelevancyAgent:
+    """
+    Agent that checks whether the research found is relevant for the original user query/question.
+    """
+
+    @staticmethod
+    def relevancy_score(paper: Paper, original_query: str) -> float:
+        """Score individual paper based on relevance to query."""
+        logger.info(f"Scoring paper: {paper.title}")
+
+        try:
+            response = relevancy_score_module(
+                paper_title=paper.title,
+                paper_abstract=paper.abstract,
+                user_query=original_query,
+            )
+
+            # Parse score from response
+            score = 50.0  # default
+            try:
+                score = float(response.relevancy_score)
+                score = max(1.0, min(score, 100.0))
+            except (ValueError, AttributeError):
+                logger.warning(f"Could not parse score for {paper.title}")
+
+            logger.info(f"Paper '{paper.title}' received score: {score}")
+            return score
+
+        except Exception as e:
+            logger.error(f"Error scoring paper: {str(e)}")
+            return 50.0
+
+    @staticmethod
+    def paper_selector(papers: List[Paper], original_query: str) -> List[Paper]:
+        """Process each paper individually for accurate scoring."""
+        logger.info(f"Processing {len(papers)} papers for query: {original_query}")
+
+        scored_papers = []
+        for paper in papers:
+            score = RelevancyAgent.relevancy_score(paper, original_query)
+            paper.relevancy_score = score
+            scored_papers.append(paper)
+
+        # Sort by score
+        scored_papers.sort(key=lambda x: x.relevancy_score or 0, reverse=True)
+        return scored_papers
 
 
 def fetch_research_papers(query: str, max_results: int = 20):
@@ -164,6 +296,7 @@ def fetch_research_papers(query: str, max_results: int = 20):
 
     base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
+    # First, search for papers
     search_url = f"{base_url}esearch.fcgi"
     search_params = {
         "db": "pubmed",
@@ -174,9 +307,6 @@ def fetch_research_papers(query: str, max_results: int = 20):
         "usehistory": "y",
     }
 
-    full_search_url = search_url + "?" + urllib.parse.urlencode(search_params)
-    # logger.info(f"Full PubMed search URL: {full_search_url}")
-
     search_response = requests.get(search_url, params=search_params)
 
     if search_response.status_code != 200:
@@ -185,18 +315,16 @@ def fetch_research_papers(query: str, max_results: int = 20):
         return []
 
     search_data = search_response.json()
-    # logger.info(f"Search response: {search_data}")
-
     id_list = search_data.get("esearchresult", {}).get("idlist", [])
     query_key = search_data.get("esearchresult", {}).get("querykey")
     web_env = search_data.get("esearchresult", {}).get("webenv")
 
     if not id_list:
-        # logger.info("No research papers found.")
         raise HTTPException(status_code=204, detail="No research papers found")
 
     logger.info(f"Number of papers found: {len(id_list)}")
 
+    # Fetch detailed information
     efetch_url = f"{base_url}efetch.fcgi"
     efetch_params = {
         "db": "pubmed",
@@ -211,13 +339,13 @@ def fetch_research_papers(query: str, max_results: int = 20):
         logger.error(
             f"Failed to fetch research paper details: {efetch_response.status_code}"
         )
-        # logger.error(f"Response content: {efetch_response.text}")
         return []
 
     root = ET.fromstring(efetch_response.content)
     papers = []
 
     for article in root.findall(".//PubmedArticle"):
+        # Basic information
         title_elem = article.find(".//ArticleTitle")
         title = title_elem.text if title_elem is not None else "No title available"
 
@@ -227,12 +355,14 @@ def fetch_research_papers(query: str, max_results: int = 20):
         pmid_elem = article.find(".//PMID")
         pmid = pmid_elem.text if pmid_elem is not None else "No PMID available"
 
+        # Authors
         authors = [
             f"{author.find('LastName').text if author.find('LastName') is not None else ''} "
             f"{author.find('ForeName').text if author.find('ForeName') is not None else ''}".strip()
             for author in article.findall(".//Author")
         ]
 
+        # Publication date
         pub_date = article.find(".//PubDate")
         if pub_date is not None:
             year = pub_date.find("Year")
@@ -242,6 +372,47 @@ def fetch_research_papers(query: str, max_results: int = 20):
         else:
             published_date = "Date not available"
 
+        # Journal information
+        journal_elem = article.find(".//Journal")
+        journal_name = ""
+        if journal_elem is not None:
+            journal_title = journal_elem.find(".//Title")
+            journal_name = journal_title.text if journal_title is not None else ""
+
+        # Publication types
+        publication_types = [
+            pub_type.text for pub_type in article.findall(".//PublicationType")
+        ]
+
+        # Study type determination
+        study_type = "unknown"
+        if abstract:
+            if any(
+                term.lower() in abstract.lower()
+                for term in ["in vitro", "cell culture", "cell line"]
+            ):
+                study_type = "in vitro"
+            elif any(
+                term.lower() in abstract.lower()
+                for term in ["in vivo", "animal model", "mouse", "rat"]
+            ):
+                study_type = "in vivo"
+            elif any(
+                term.lower() in abstract.lower()
+                for term in ["clinical trial", "human subjects", "patient"]
+            ):
+                study_type = "clinical trial"
+
+        # Citation metrics
+        citation_count = article.find(".//CitedByCount")
+        citation_count = int(citation_count.text) if citation_count is not None else 0
+
+        # Peer review status (based on publication type and journal presence)
+        peer_reviewed = (
+            journal_elem is not None and "Journal Article" in publication_types
+        )
+
+        # Create Paper object
         papers.append(
             Paper(
                 title=title,
@@ -249,10 +420,14 @@ def fetch_research_papers(query: str, max_results: int = 20):
                 authors=[Author(name=author) for author in authors],
                 published_date=published_date,
                 abstract=abstract,
+                citation_count=citation_count,
+                peer_reviewed=peer_reviewed,
+                journal_name=journal_name,
+                study_type=study_type,
+                publication_type=publication_types,
             )
         )
 
-    logger.info(f"Successfully fetched and parsed {len(papers)} research papers.")
     return papers
 
 
@@ -395,16 +570,22 @@ async def solve_task(task: Task):
                 "current_steps": current_steps,
             }
 
-        elif state == "Research":
-            enhanced_query = enhance_query_with_dspy(
-                original_query=task_description,
-                clarify_answers=input_data.get("clarify_answers", []),
+        if state == "Research":
+            # Fetch papers
+            research_papers = fetch_research_papers(task_description)
+            logger.info(f"Fetched papers count: {len(research_papers)}")
+
+            # Score papers
+            processed_papers = RelevancyAgent.paper_selector(
+                research_papers, task_description
             )
-            papers = fetch_research_papers(enhanced_query, max_results=20)
-            logger.info(f"Fetched {len(papers)} research papers")
+            logger.info(f"Processed papers count: {len(processed_papers)}")
+
+            # Important: Don't transition state yet, stay in "Research" for paper selection
             return {
-                "state": "Research",
-                "research_papers": papers,
+                "state": "Research",  # Stay in Research state
+                "research_papers": processed_papers,
+                "response": "Please select relevant papers to continue.",
                 "current_steps": state_substeps.get(state, []),
             }
 
@@ -517,11 +698,66 @@ async def solve_task(task: Task):
         raise e
     except Exception as e:
         logger.error(f"Error in solve_task: {str(e)}")
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# -------------------------------------------------------------------
+# Below is the skeleton for the new Agents we plan to integrate with AutoGen
+# -------------------------------------------------------------------
+
+
+class EntryPointAgent:
+    """
+    Agent that accepts the user query and handles question clarification and query enhancement.
+    """
+
+    @staticmethod
+    def generate_clarifying_questions(task_description: str) -> List[str]:
+        # We can reuse the existing generate_clarifying_questions
+        return generate_clarifying_questions(task_description)
+
+    @staticmethod
+    def clean_query(query: str) -> str:
+        return clean_query(query)
+
+    @staticmethod
+    def enhance_query_with_dspy(
+        original_query: str, clarify_answers: List[Dict[str, str]]
+    ) -> str:
+        return enhance_query_with_dspy(original_query, clarify_answers)
+
+
+class ResearchCritiqueAgent:
+    """
+    Agent that critiques the chosen research papers based on certain parameters (e.g., citations, methodology).
+    """
+
+    @staticmethod
+    def citation_score(paper: Paper) -> float:
+        """
+        Returns a critique score (1–100) based on the paper's abstract, methodology, etc.
+        We'll incorporate a dspy chain-of-thought to parse the abstract.
+        """
+        response = citation_score_module.forward(paper_abstract=paper.abstract)
+        # Example naive parse:
+        raw_output = str(response)
+        score = 50.0
+        match = re.search(r"(\d+)", raw_output)
+        if match:
+            score = float(match.group(1))
+        return max(1.0, min(score, 100.0))
+
+
+class SynthesisConcludeAgent:
+    """
+    Agent that will handle deep synthesis and concluding remarks across the entire process.
+    Placeholder for future steps, using advanced LLM logic or prompting.
+    """
+
+    pass

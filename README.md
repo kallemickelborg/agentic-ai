@@ -15,7 +15,6 @@ A simple human-in-the-loop playground for a multilayer AI agent designed to answ
 - [Development](#development)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## Overview
 
