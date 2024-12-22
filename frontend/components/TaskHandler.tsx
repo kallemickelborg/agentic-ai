@@ -25,6 +25,7 @@ interface Paper {
 	authors: Author[];
 	published_date: string;
 	relevancy_score?: number;
+	citation_score?: number;
 }
 
 interface Task {
@@ -65,8 +66,6 @@ const placeholderData = {
 	],
 	analysisResponse:
 		"Analysis of the selected papers shows strong evidence for the benefits of Vitamin D3 in bone health...",
-	synthesisResponse:
-		"Synthesizing the information from the papers, we can conclude that Vitamin D3 plays a crucial role in...",
 	conclusionResponse:
 		"In conclusion, Vitamin D3 offers significant benefits, particularly in bone health. However, more research is needed to...",
 };
@@ -126,13 +125,18 @@ export default function TaskSolver() {
 			let nextState = taskState;
 			if (taskState === "Start") {
 				nextState = "Clarify";
-			} else if (
-				taskState === "Clarify" &&
-				clarifyAnswers.every((ans) => ans.answer !== "")
-			) {
-				nextState = "Research";
-			} else if (taskState === "Research" && selectedPapers.length > 0) {
-				nextState = "Analyze";
+			} else if (taskState === "Clarify") {
+				if (clarifyAnswers.every((ans) => ans.answer !== "")) {
+					nextState = "Research";
+				}
+			} else if (taskState === "Research") {
+				if (selectedPapers.length > 0) {
+					nextState = "Analyze";
+				}
+			} else if (taskState === "Analyze") {
+				nextState = "Conclude";
+			} else if (taskState === "Conclude") {
+				nextState = "End";
 			}
 
 			const payload: Task = {
@@ -145,6 +149,7 @@ export default function TaskSolver() {
 				research_papers: researchPapers,
 			};
 
+			console.log("Sending payload with state:", nextState);
 			const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 			const result = await axios.post(`${API_BASE_URL}/solve-task/`, payload, {
 				headers: {
@@ -161,12 +166,16 @@ export default function TaskSolver() {
 				return;
 			}
 
-			setResponse(result.data.response);
-			setTaskState(result.data.state);
-
-			if (result.data.research_papers) {
+			if (
+				result.data.research_papers &&
+				Array.isArray(result.data.research_papers)
+			) {
+				console.log("Setting research papers:", result.data.research_papers);
 				setResearchPapers(result.data.research_papers);
 			}
+
+			setTaskState(nextState);
+			setResponse(result.data.response || "");
 
 			if (result.data.current_steps) {
 				setCurrentSteps(result.data.current_steps);
@@ -214,9 +223,16 @@ export default function TaskSolver() {
 
 	useEffect(() => {
 		if (taskState === "Research" && researchPapers.length === 0) {
+			console.log("Triggering research papers fetch...");
 			handleTask();
 		}
 	}, [taskState]);
+
+	useEffect(() => {
+		console.log("Current state:", taskState);
+		console.log("Research papers:", researchPapers);
+		console.log("Selected papers:", selectedPapers);
+	}, [taskState, researchPapers, selectedPapers]);
 
 	const cycleState = (direction: "forward" | "backward") => {
 		const states = [
@@ -224,7 +240,6 @@ export default function TaskSolver() {
 			"Clarify",
 			"Research",
 			"Analyze",
-			"Synthesize",
 			"Conclude",
 			"End",
 		];
@@ -248,9 +263,6 @@ export default function TaskSolver() {
 				break;
 			case "Analyze":
 				setResponse(placeholderData.analysisResponse);
-				break;
-			case "Synthesize":
-				setResponse(placeholderData.synthesisResponse);
 				break;
 			case "Conclude":
 				setResponse(placeholderData.conclusionResponse);
@@ -359,53 +371,79 @@ export default function TaskSolver() {
             </div>
           )} */}
 
-					{/* Show paper selection only during Research state */}
-					{taskState === "Research" && researchPapers.length > 0 && (
+					{/* Show paper selection during Research state */}
+					{taskState === "Research" && (
 						<div className="mt-6 mb-4">
 							<Typography variant="h2" className="text-indigo-600 mb-2">
-								Select Research Papers
+								Research Papers{" "}
+								{researchPapers.length > 0 ? `(${researchPapers.length})` : ""}
 							</Typography>
-							<List className="paperList">
-								{researchPapers.map((paper, index) => (
-									<ListItem key={index} className="paperItem">
-										<label className="flex items-start">
-											<input
-												type="checkbox"
-												className="paperCheckbox"
-												checked={selectedPapers.includes(paper.link)}
-												onChange={() => handleSelectPaper(paper.link)}
-											/>
-											<div className="ml-2 paperContent">
-												<div className="flex justify-between items-start">
-													<a
-														href={paper.link}
-														target="_blank"
-														rel="noopener noreferrer"
-														className="text-xs text-indigo-600 font-bold"
-													>
-														{paper.title}
-													</a>
-													{paper.relevancy_score !== undefined && (
-														<span className="text-xs font-medium ml-2 px-2 py-1 bg-green-100 text-green-800 rounded">
-															Relevancy: {Math.round(paper.relevancy_score)}%
-														</span>
-													)}
-												</div>
-												<div className="text-xs">
-													{paper.authors && paper.authors.length > 0
-														? `By ${paper.authors
-																.map((author) => author.name)
-																.join(", ")}`
-														: "Authors not available"}
-													<br />
-													Published:{" "}
-													{paper.published_date || "Date not available"}
-												</div>
-											</div>
-										</label>
-									</ListItem>
-								))}
-							</List>
+							{researchPapers.length === 0 ? (
+								<Typography variant="p" className="text-gray-600">
+									Loading research papers...
+								</Typography>
+							) : (
+								<List className="space-y-4">
+									{Array.isArray(researchPapers) ? (
+										researchPapers.map((paper, index) => (
+											<ListItem
+												key={index}
+												className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+											>
+												<label className="flex items-start space-x-4 cursor-pointer">
+													<input
+														type="checkbox"
+														className="mt-1 h-4 w-4 text-indigo-600 rounded border-gray-300"
+														checked={selectedPapers.includes(paper.link)}
+														onChange={() => handleSelectPaper(paper.link)}
+													/>
+													<div className="flex-1">
+														<div className="flex justify-between items-start">
+															<a
+																href={paper.link}
+																target="_blank"
+																rel="noopener noreferrer"
+																className="text-sm text-indigo-600 font-semibold hover:text-indigo-800"
+															>
+																{paper.title}
+															</a>
+															<div className="flex space-x-2">
+																{paper.relevancy_score !== undefined && (
+																	<span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded">
+																		Relevancy:{" "}
+																		{Math.round(paper.relevancy_score)}%
+																	</span>
+																)}
+																{paper.citation_score !== undefined && (
+																	<span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
+																		Scientific Merit:{" "}
+																		{Math.round(paper.citation_score)}%
+																	</span>
+																)}
+															</div>
+														</div>
+														<div className="mt-1 text-xs text-gray-600">
+															{paper.authors && paper.authors.length > 0
+																? `Authors: ${paper.authors
+																		.map((author) => author.name)
+																		.join(", ")}`
+																: "Authors not available"}
+														</div>
+														<div className="text-xs text-gray-500">
+															Published:{" "}
+															{paper.published_date || "Date not available"}
+														</div>
+													</div>
+												</label>
+											</ListItem>
+										))
+									) : (
+										<Typography variant="p" className="text-red-600">
+											Error: Research papers data is not in the expected format
+										</Typography>
+									)}
+								</List>
+							)}
 						</div>
 					)}
 
@@ -441,29 +479,33 @@ export default function TaskSolver() {
 					{/* Display selected papers in other states */}
 					{taskState !== "Research" && selectedPapers.length > 0 && (
 						<div className="mt-6">
-							<Typography variant="h3" className="text-indigo-600">
-								Selected Research Papers
+							<Typography variant="h3" className="text-indigo-600 mb-2">
+								Selected Papers ({selectedPapers.length})
 							</Typography>
-							<List className="paperList">
+							<List className="space-y-4">
 								{researchPapers
 									.filter((paper) => selectedPapers.includes(paper.link))
 									.map((paper, index) => (
-										<ListItem key={index} className="paperItem">
+										<ListItem
+											key={index}
+											className="p-4 border border-gray-200 rounded-lg shadow-sm"
+										>
 											<a
 												href={paper.link}
 												target="_blank"
 												rel="noopener noreferrer"
-												className="text-xs text-indigo-600 font-bold"
+												className="text-sm text-indigo-600 font-semibold hover:text-indigo-800"
 											>
 												{paper.title}
 											</a>
-											<div className="text-xs">
+											<div className="mt-1 text-xs text-gray-600">
 												{paper.authors && paper.authors.length > 0
-													? `By ${paper.authors
+													? `Authors: ${paper.authors
 															.map((author) => author.name)
 															.join(", ")}`
 													: "Authors not available"}
-												<br />
+											</div>
+											<div className="text-xs text-gray-500">
 												Published:{" "}
 												{paper.published_date || "Date not available"}
 											</div>
@@ -501,7 +543,7 @@ export default function TaskSolver() {
 				)}
 
 				{/* Development mode toggle and navigation buttons */}
-				{process.env.NODE_ENV === "development" && (
+				{/* {process.env.NODE_ENV === "development" && (
 					<div className="mt-4 p-4 bg-gray-100 rounded-lg">
 						<label className="flex items-center space-x-2">
 							<input
@@ -529,7 +571,7 @@ export default function TaskSolver() {
 							</div>
 						)}
 					</div>
-				)}
+				)} */}
 			</motion.div>
 		</motion.div>
 	);
