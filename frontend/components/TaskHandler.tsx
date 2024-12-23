@@ -79,6 +79,27 @@ interface Question {
 	question: string;
 }
 
+interface ProcessingStatus {
+	totalPapers: number;
+	processedPapers: number;
+	currentPaper: {
+		title: string;
+		relevancy_score: number;
+		citation_score: number;
+	} | null;
+}
+
+function isValidPaper(
+	paper: any
+): paper is { title: string; relevancy_score: number; citation_score: number } {
+	return (
+		paper &&
+		typeof paper.title === "string" &&
+		typeof paper.relevancy_score === "number" &&
+		typeof paper.citation_score === "number"
+	);
+}
+
 export default function TaskSolver() {
 	const [taskState, setTaskState] = useState("Start");
 	const [taskDescription, setTaskDescription] = useState("");
@@ -95,6 +116,11 @@ export default function TaskSolver() {
 	const [clarifyAnswers, setClarifyAnswers] = useState<ClarifyAnswer[]>([]);
 	const [isDevMode, setIsDevMode] = useState(false);
 	const [noResultsFound, setNoResultsFound] = useState(false);
+	const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>({
+		totalPapers: 0,
+		processedPapers: 0,
+		currentPaper: null,
+	});
 
 	const handleSelectPaper = (link: string) => {
 		setSelectedPapers((prev) =>
@@ -120,6 +146,11 @@ export default function TaskSolver() {
 		setResponse("");
 		setCurrentSteps([]);
 		setNoResultsFound(false);
+		setProcessingStatus({
+			totalPapers: 0,
+			processedPapers: 0,
+			currentPaper: null,
+		});
 
 		try {
 			let nextState = taskState;
@@ -129,10 +160,8 @@ export default function TaskSolver() {
 				if (clarifyAnswers.every((ans) => ans.answer !== "")) {
 					nextState = "Research";
 				}
-			} else if (taskState === "Research") {
-				if (selectedPapers.length > 0) {
-					nextState = "Analyze";
-				}
+			} else if (taskState === "Research" && selectedPapers.length > 0) {
+				nextState = "Analyze";
 			} else if (taskState === "Analyze") {
 				nextState = "Conclude";
 			} else if (taskState === "Conclude") {
@@ -151,51 +180,92 @@ export default function TaskSolver() {
 
 			console.log("Sending payload with state:", nextState);
 			const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-			const result = await axios.post(`${API_BASE_URL}/solve-task/`, payload, {
-				headers: {
-					"Content-Type": "application/json",
-				},
-				withCredentials: true,
-			});
 
-			console.log("Server Response:", result.data);
+			if (nextState === "Research" && taskState === "Clarify") {
+				const response = await fetch(`${API_BASE_URL}/solve-task/`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(payload),
+				});
 
-			if (result.data.state === "Error") {
-				setToast({ message: result.data.error_message, type: "error" });
-				setIsLoading(false);
-				return;
-			}
+				const reader = response.body?.getReader();
+				if (!reader) {
+					throw new Error("No reader available");
+				}
 
-			if (
-				result.data.research_papers &&
-				Array.isArray(result.data.research_papers)
-			) {
-				console.log("Setting research papers:", result.data.research_papers);
-				setResearchPapers(result.data.research_papers);
-			}
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
 
-			setTaskState(nextState);
-			setResponse(result.data.response || "");
+					const chunk = new TextDecoder().decode(value);
+					const lines = chunk.split("\n");
 
-			if (result.data.current_steps) {
-				setCurrentSteps(result.data.current_steps);
-			}
+					for (const line of lines) {
+						if (line.startsWith("data: ")) {
+							const data = JSON.parse(line.slice(6));
+							console.log("Received update:", data);
 
-			if (result.data.questions) {
-				setClarifyingQuestions(result.data.questions as string[]);
-				setClarifyAnswers(
-					(result.data.questions as string[]).map((q: string) => ({
-						question: q,
-						answer: "",
-					}))
+							if (data.total_papers) {
+								setProcessingStatus((prev) => ({
+									...prev,
+									totalPapers: data.total_papers,
+									processedPapers: data.processed_papers,
+									currentPaper: data.current_paper,
+								}));
+							}
+
+							if (data.research_papers) {
+								setResearchPapers(data.research_papers);
+								setTaskState("Research");
+							}
+						}
+					}
+				}
+			} else {
+				const result = await axios.post(
+					`${API_BASE_URL}/solve-task/`,
+					payload,
+					{
+						headers: {
+							"Content-Type": "application/json",
+						},
+						withCredentials: true,
+					}
 				);
-			}
 
-			if (result.data.restart) {
-				setNoResultsFound(true);
-				setTaskState("Start");
-				setClarifyingQuestions([]);
-				setClarifyAnswers([]);
+				console.log("Server Response:", result.data);
+
+				if (result.data.state === "Error") {
+					setToast({ message: result.data.error_message, type: "error" });
+					setIsLoading(false);
+					return;
+				}
+
+				setTaskState(nextState);
+				setResponse(result.data.response || "");
+
+				if (result.data.current_steps) {
+					setCurrentSteps(result.data.current_steps);
+				}
+
+				if (result.data.questions) {
+					setClarifyingQuestions(result.data.questions as string[]);
+					setClarifyAnswers(
+						(result.data.questions as string[]).map((q: string) => ({
+							question: q,
+							answer: "",
+						}))
+					);
+				}
+
+				if (result.data.restart) {
+					setNoResultsFound(true);
+					setTaskState("Start");
+					setClarifyingQuestions([]);
+					setClarifyAnswers([]);
+				}
 			}
 
 			setIsLoading(false);
@@ -272,6 +342,13 @@ export default function TaskSolver() {
 		}
 	};
 
+	const calculateProgress = () => {
+		if (processingStatus.totalPapers === 0) return 0;
+		return (
+			(processingStatus.processedPapers / processingStatus.totalPapers) * 100
+		);
+	};
+
 	return (
 		<motion.div
 			initial={{ opacity: 0, y: 50 }}
@@ -281,7 +358,7 @@ export default function TaskSolver() {
 		>
 			<div>
 				<Typography variant="h1" className="text-3xl mb-4">
-					Agentic AI Dietician
+					Agentic AI PubMed Research Assistant
 				</Typography>
 			</div>
 
@@ -332,6 +409,55 @@ export default function TaskSolver() {
 								</div>
 							</div>
 						))}
+
+						{/* Paper Processing Status */}
+						{processingStatus.totalPapers > 0 && (
+							<div className="mt-6 bg-gray-50 p-4 rounded-lg">
+								<div className="flex justify-between items-center mb-2">
+									<Typography variant="h3" className="text-indigo-600">
+										Processing Papers
+									</Typography>
+									<span className="text-sm text-gray-600">
+										{processingStatus.processedPapers} of{" "}
+										{processingStatus.totalPapers}
+									</span>
+								</div>
+
+								<div className="w-full bg-gray-200 rounded-full h-2.5 my-4">
+									<motion.div
+										className="bg-indigo-600 h-2.5 rounded-full"
+										initial={{ width: "0%" }}
+										animate={{ width: `${calculateProgress()}%` }}
+										transition={{ duration: 0.5 }}
+									/>
+								</div>
+
+								{processingStatus.currentPaper &&
+									isValidPaper(processingStatus.currentPaper) && (
+										<div className="text-sm bg-white p-3 rounded-md shadow-sm">
+											<div className="font-medium text-gray-800">
+												{processingStatus.currentPaper.title}
+											</div>
+											<div className="flex space-x-4 mt-2">
+												<span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded">
+													Relevancy:{" "}
+													{Math.round(
+														processingStatus.currentPaper.relevancy_score
+													)}
+													%
+												</span>
+												<span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
+													Scientific Merit:{" "}
+													{Math.round(
+														processingStatus.currentPaper.citation_score
+													)}
+													%
+												</span>
+											</div>
+										</div>
+									)}
+							</div>
+						)}
 					</div>
 				)}
 
@@ -341,109 +467,76 @@ export default function TaskSolver() {
 					transition={{ delay: 1 }}
 					className="mb-8"
 				>
-					{/* Render the response as HTML to support bullet points and links - MIGHT NEED TO CHANGE OR REMOVE */}
-					{response && (
-						<div
-							className="text-xs mb-4"
-							dangerouslySetInnerHTML={{
-								__html: response.replace(/\n/g, "<br>"),
-							}}
-						/>
-					)}
-
 					{isLoading && (
 						<div className="mt-6 mb-4">
 							<Skeleton height={30} width={`80%`} />
 							<Skeleton count={3} />
 						</div>
 					)}
-					{/*
-          {currentSteps.length > 0 && (
-            <div className="mt-6 mb-4">
-              <Typography variant="h2" className="text-indigo-600 mb-2">Current Processing Steps</Typography>
-              <List>
-                {currentSteps.map((step, index) => (
-                  <ListItem key={index} className="p-4 pl-6 bg-gray-200 rounded text-xs text-indigo-600">
-                    {step}
-                  </ListItem>
-                ))}
-              </List>
-            </div>
-          )} */}
 
 					{/* Show paper selection during Research state */}
 					{taskState === "Research" && (
 						<div className="mt-6 mb-4">
-							<Typography variant="h2" className="text-indigo-600 mb-2">
-								Research Papers{" "}
-								{researchPapers.length > 0 ? `(${researchPapers.length})` : ""}
-							</Typography>
-							{researchPapers.length === 0 ? (
-								<Typography variant="p" className="text-gray-600">
-									Loading research papers...
-								</Typography>
-							) : (
-								<List className="space-y-4">
-									{Array.isArray(researchPapers) ? (
-										researchPapers.map((paper, index) => (
-											<ListItem
-												key={index}
-												className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
-											>
-												<label className="flex items-start space-x-4 cursor-pointer">
-													<input
-														type="checkbox"
-														className="mt-1 h-4 w-4 text-indigo-600 rounded border-gray-300"
-														checked={selectedPapers.includes(paper.link)}
-														onChange={() => handleSelectPaper(paper.link)}
-													/>
-													<div className="flex-1">
-														<div className="flex justify-between items-start">
-															<a
-																href={paper.link}
-																target="_blank"
-																rel="noopener noreferrer"
-																className="text-sm text-indigo-600 font-semibold hover:text-indigo-800"
-															>
-																{paper.title}
-															</a>
-															<div className="flex space-x-2">
-																{paper.relevancy_score !== undefined && (
-																	<span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded">
-																		Relevancy:{" "}
-																		{Math.round(paper.relevancy_score)}%
-																	</span>
-																)}
-																{paper.citation_score !== undefined && (
-																	<span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
-																		Scientific Merit:{" "}
-																		{Math.round(paper.citation_score)}%
-																	</span>
-																)}
-															</div>
-														</div>
-														<div className="mt-1 text-xs text-gray-600">
-															{paper.authors && paper.authors.length > 0
-																? `Authors: ${paper.authors
-																		.map((author) => author.name)
-																		.join(", ")}`
-																: "Authors not available"}
-														</div>
-														<div className="text-xs text-gray-500">
-															Published:{" "}
-															{paper.published_date || "Date not available"}
+							<List className="space-y-4">
+								{Array.isArray(researchPapers) ? (
+									researchPapers.map((paper, index) => (
+										<ListItem
+											key={index}
+											className="p-4 border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+										>
+											<label className="flex items-start space-x-4 cursor-pointer">
+												<input
+													type="checkbox"
+													className="mt-1 h-4 w-4 text-indigo-600 rounded border-gray-300"
+													checked={selectedPapers.includes(paper.link)}
+													onChange={() => handleSelectPaper(paper.link)}
+												/>
+												<div className="flex-1">
+													<div className="flex justify-between items-start">
+														<a
+															href={paper.link}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="text-sm text-indigo-600 font-semibold hover:text-indigo-800"
+														>
+															{paper.title}
+														</a>
+														<div className="flex space-x-2">
+															{paper.relevancy_score !== undefined && (
+																<span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded">
+																	Relevancy: {Math.round(paper.relevancy_score)}
+																	%
+																</span>
+															)}
+															{paper.citation_score !== undefined && (
+																<span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
+																	Scientific Merit:{" "}
+																	{Math.round(paper.citation_score)}%
+																</span>
+															)}
 														</div>
 													</div>
-												</label>
-											</ListItem>
-										))
-									) : (
-										<Typography variant="p" className="text-red-600">
-											Error: Research papers data is not in the expected format
-										</Typography>
-									)}
-								</List>
-							)}
+													<div className="mt-1 text-xs text-gray-600">
+														{paper.authors && paper.authors.length > 0
+															? `Authors: ${paper.authors
+																	.map((author) => author.name)
+																	.join(", ")}`
+															: "Authors not available"}
+													</div>
+													<div className="text-xs text-gray-500">
+														Published:{" "}
+														{paper.published_date || "Date not available"}
+													</div>
+												</div>
+											</label>
+										</ListItem>
+									))
+								) : (
+									<Typography variant="p" className="text-red-600">
+										Error: Research papers data is not in the expected format
+									</Typography>
+								)}
+							</List>
 						</div>
 					)}
 

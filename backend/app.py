@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, AsyncGenerator
 import os
 import logging
 from dotenv import load_dotenv
@@ -10,6 +11,7 @@ import re
 import traceback
 import requests
 from fastapi.middleware.cors import CORSMiddleware
+import json
 
 import dspy
 
@@ -336,7 +338,11 @@ def fetch_research_papers(query: str, max_results: int = 20):
     for article in root.findall(".//PubmedArticle"):
         # Basic information
         title_elem = article.find(".//ArticleTitle")
-        title = title_elem.text if title_elem is not None else "No title available"
+        title = (
+            title_elem.text
+            if title_elem is not None and title_elem.text is not None
+            else "No title available"
+        )
 
         abstract_elem = article.find(".//AbstractText")
         abstract = abstract_elem.text if abstract_elem is not None else ""
@@ -420,6 +426,97 @@ def fetch_research_papers(query: str, max_results: int = 20):
     return papers
 
 
+def process_research_papers(task_description: str):
+    """Process research papers and yield updates for each paper."""
+    research_papers = fetch_research_papers(task_description)
+    logger.info(f"Processing Research state for task: {task_description}")
+
+    processed_papers = []
+    total_papers = len(research_papers)
+
+    # Send initial count
+    yield {
+        "state": "Research",
+        "total_papers": total_papers,
+        "processed_papers": 0,
+        "current_paper": None,
+    }
+
+    for index, paper in enumerate(research_papers):
+        try:
+            # Single call to evaluate both scores
+            response = paper_evaluation_module(
+                paper_title=paper.title,
+                paper_abstract=paper.abstract or "",
+                peer_reviewed=str(paper.peer_reviewed),
+                study_type=paper.study_type or "Unknown",
+                user_query=task_description,
+            )
+
+            # Parse out both scores
+            rel_score = 50.0
+            cit_score = 50.0
+
+            # Convert to float and clamp
+            try:
+                rel_score = max(1.0, min(float(response.relevancy_score), 100.0))
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"Invalid relevancy_score for '{paper.title}'. Using default=50."
+                )
+
+            try:
+                cit_score = max(1.0, min(float(response.citation_score), 100.0))
+            except (ValueError, TypeError):
+                logger.warning(
+                    f"Invalid citation_score for '{paper.title}'. Using default=50."
+                )
+
+            paper.relevancy_score = rel_score
+            paper.citation_score = cit_score
+
+            logger.info(
+                f"Paper '{paper.title}' => Relevancy: {paper.relevancy_score}, Citation: {paper.citation_score}"
+            )
+            processed_papers.append(paper)
+
+            # Send update for each processed paper
+            yield {
+                "state": "Research",
+                "total_papers": total_papers,
+                "processed_papers": len(processed_papers),
+                "current_paper": {
+                    "title": paper.title,
+                    "relevancy_score": rel_score,
+                    "citation_score": cit_score,
+                },
+            }
+
+        except Exception as e:
+            logger.error(f"Error evaluating paper '{paper.title}': {str(e)}")
+            paper.relevancy_score = 50.0
+            paper.citation_score = 50.0
+            processed_papers.append(paper)
+
+    # Sort by relevancy_score, then by citation_score
+    processed_papers.sort(
+        key=lambda p: (p.relevancy_score or 0, p.citation_score or 0),
+        reverse=True,
+    )
+
+    # Send final update with all papers
+    yield {
+        "state": state_transitions.get("Research", "End"),
+        "research_papers": [
+            paper.dict() for paper in processed_papers
+        ],  # Convert to dict for JSON serialization
+        "response": "Papers have been evaluated for both relevancy and scientific merit.",
+        "current_steps": state_substeps.get("Research", []),
+        "total_papers": total_papers,
+        "processed_papers": len(processed_papers),
+    }
+
+
 @app.post("/solve-task/")
 async def solve_task(task: Task):
     logger.info(f"Received task: {task.dict()}")
@@ -447,69 +544,14 @@ async def solve_task(task: Task):
             }
 
         if state == "Research":
-            research_papers = fetch_research_papers(task_description)
-            logger.info(f"Processing Research state for task: {task_description}")
 
-            processed_papers = []
-            for paper in research_papers:
-                try:
-                    # Single call to evaluate both scores
-                    response = paper_evaluation_module(
-                        paper_title=paper.title,
-                        paper_abstract=paper.abstract or "",
-                        peer_reviewed=str(paper.peer_reviewed),
-                        study_type=paper.study_type or "Unknown",
-                        user_query=task_description,
-                    )
+            async def generate_research_updates():
+                for update in process_research_papers(task_description):
+                    yield f"data: {json.dumps(update)}\n\n"
 
-                    # Parse out both scores
-                    rel_score = 50.0
-                    cit_score = 50.0
-
-                    # Convert to float and clamp
-                    try:
-                        rel_score = max(
-                            1.0, min(float(response.relevancy_score), 100.0)
-                        )
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            f"Invalid relevancy_score for '{paper.title}'. Using default=50."
-                        )
-
-                    try:
-                        cit_score = max(1.0, min(float(response.citation_score), 100.0))
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            f"Invalid citation_score for '{paper.title}'. Using default=50."
-                        )
-
-                    paper.relevancy_score = rel_score
-                    paper.citation_score = cit_score
-
-                    logger.info(
-                        f"Paper '{paper.title}' => Relevancy: {paper.relevancy_score}, Citation: {paper.citation_score}"
-                    )
-                    processed_papers.append(paper)
-
-                except Exception as e:
-                    logger.error(f"Error evaluating paper '{paper.title}': {str(e)}")
-                    # If you'd still like to add the paper, put default scores:
-                    paper.relevancy_score = 50.0
-                    paper.citation_score = 50.0
-                    processed_papers.append(paper)
-
-            # Sort by relevancy_score, then by citation_score
-            processed_papers.sort(
-                key=lambda p: (p.relevancy_score or 0, p.citation_score or 0),
-                reverse=True,
+            return StreamingResponse(
+                generate_research_updates(), media_type="text/event-stream"
             )
-
-            return {
-                "state": state_transitions.get(state, "End"),
-                "research_papers": processed_papers,
-                "response": "Papers have been evaluated for both relevancy and scientific merit.",
-                "current_steps": state_substeps.get(state, []),
-            }
 
         elif state == "Analyze":
             selected_papers_links = input_data.get("selected_papers", [])
