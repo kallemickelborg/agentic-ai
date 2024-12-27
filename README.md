@@ -1,14 +1,13 @@
-# Agentic AI Playground
+# Stateful AI Agent for Knowledge Extraction in Medical Research
 
-## Creating a medical research assistant for nutrition using layered AI agents
-
-A simple human-in-the-loop playground for a multilayer AI agent designed to answer medical research questions with research papers from PubMed. This project demonstrates the integration of OpenAI's GPT models with a Next.js frontend and a FastAPI backend, all deployed on Render.
+A simple human-in-the-loop playground for a multi-state AI agent designed to answer medical research questions with research papers from PubMed. This project is based on the [StateFlow](https://arxiv.org/abs/2403.11322) research paper, using states with cascading function calling in a research pipeline. The benefit of using states is that it allows for a more structured and modular approach to the research process, making it easier to manage and scale. Using states is a different but highly effective approach for building AI agents, allowing for more deterministic and predictable behavior. The function calling is implemented using [FastAPI](https://fastapi.tiangolo.com/), [OpenAI API](https://openai.com/api/) and [DSPy](https://dspy.ai/) to process Chain-of-Thought reasoning for prompting the LLM.
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
 - [Tech Stack](#tech-stack)
+- [Functions](#functions)
+- [Roadmap](#roadmap)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
@@ -18,23 +17,63 @@ A simple human-in-the-loop playground for a multilayer AI agent designed to answ
 
 ## Overview
 
-This project implements an AI-powered nutrition research assistant. It uses a multi-step process to clarify research queries, fetch relevant scientific papers, and provide analysis and synthesis of the information.
-
-## Features
-
-- Human-in-the-loop playground for each step of the research process
-- Interactive research query optimization to find relevant research papers in PubMed based on the user's query
-- Automated scientific paper retrieval from PubMed
-- Synthesis of research findings rooted in the retrieved papers
+This project implements a number of different Python frameworks and libraries to create a multi-state AI agent for knowledge extraction in medical research. The agent has been designed with 5 states in mind; Start, Clarify, Research, Analyze, and Conclusion. Each state has a number of functions that are used to extract knowledge from the research papers. Below is a list of the functions for each state.
 
 ## Tech Stack
 
 - Frontend: [Next.js](https://nextjs.org/) (React framework)
-- Backend: [FastAPI](https://fastapi.tiangolo.com/) (Python framework)
-- AI: [OpenAI API](https://openai.com/blog/openai-api) (GPT models)
-- Deployment: [Render](https://render.com/)
-- Styling: [Tailwind CSS](https://tailwindcss.com/)
+- Backend: [Python](https://www.python.org/) with [FastAPI](https://fastapi.tiangolo.com/) (Python framework)
+- Data Validation: [Pydantic](https://docs.pydantic.dev/) (Type checking)
+- Language Model: [OpenAI API](https://openai.com/blog/openai-api) (GPT models)
+- Prompting Framework: [DSPy](https://dspy.ai/) (Chain-of-Thought reasoning)
+- Styling: [Tailwind CSS](https://tailwindcss.com/), [Radix UI](https://www.radix-ui.com/primitives) (UI components)
 - Animation: [Framer Motion](https://www.framer.com/motion/)
+- Deployment: [Render](https://render.com/)
+
+### Functions at each state
+
+#### State 1: Start
+
+- `solve_task`: Initializes the research process and transitions to the Clarify state
+
+#### State 2: Clarify
+
+- `generate_clarifying_questions`: Generates relevant questions to better understand the user's research needs
+- `ClarifyQuestions` (DSPy Signature): Processes the task description to generate targeted clarifying questions
+
+#### State 3: Research
+
+- `fetch_research_papers`: Retrieves research papers from PubMed based on the query
+- `process_research_papers`: Processes and evaluates retrieved papers
+- `enhance_search_query`: Optimizes the search query for better results
+- `enhance_query_with_dspy`: Enhances the query using clarifying answers
+- `check_paper_accessibility`: Checks if papers are openly accessible
+- `PaperEvaluation` (DSPy Signature): Evaluates papers for relevance and scientific merit
+- `relevancy_score`: Ranks each research paper based on its relevance to the user's query
+- `citation_score`: Ranks each research paper based on its methdology, study design, and other factors
+
+#### State 4: Analyze
+
+- `analyze_papers`: Performs comprehensive analysis of selected papers, altogether
+- `analyze_paper_content`: Analyzes individual paper content using full text or abstract
+- `fetch_pdf_content`: Retrieves and extracts text from PDF papers using URL
+- `fetch_pmc_paper_content`: Fetches paper content from PubMed Central
+- `PaperAnalysis` (DSPy Signature): Extracts supporting and opposing evidence from papers
+
+#### State 5: Conclude (WIP)
+
+- `conclude_research`: Generates final conclusions based on analyzed papers
+- `Conclude` (DSPy Signature): Processes all findings to create a comprehensive conclusion
+
+## Roadmap
+
+This project is a work in progress, and so needs more work to be fully functional. Below is a list of tasks.
+
+- [ ] Finish the Conclusion state placeholder
+- [ ] Add functions for Conclusion state
+- [ ] Refactor functions for each state for better readability and maintainability
+- [ ] Add more descriptive logging and error handling for debugging and troubleshooting
+- [ ] Improve the UI/UX for the frontend for better user experience and legibility
 
 ## Getting Started
 

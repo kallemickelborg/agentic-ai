@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-	title: "Agentic AI PubMed Research Assistant",
-	description: "Agentic AI PubMed Research Assistant",
+	title: "Agentic Medical Research Assistant",
+	description: "Agentic Medical Research Assistant",
 };
 
 export default function RootLayout({

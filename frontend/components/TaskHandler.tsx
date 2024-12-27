@@ -21,6 +21,11 @@ interface Author {
 
 type TaskState = (typeof TASK_STATES)[keyof typeof TASK_STATES];
 
+interface EvidencePoint {
+	title: string;
+	evidence: string;
+}
+
 interface Paper {
 	title: string;
 	link: string;
@@ -28,8 +33,8 @@ interface Paper {
 	published_date: string;
 	relevancy_score?: number;
 	citation_score?: number;
-	supporting_evidence?: string;
-	opposing_evidence?: string;
+	supporting_evidence?: EvidencePoint[];
+	opposing_evidence?: EvidencePoint[];
 	key_findings?: string;
 	full_text_accessible: boolean;
 	full_text_link?: string;
@@ -133,6 +138,92 @@ function isValidPaper(
 		typeof paper.citation_score === "number"
 	);
 }
+
+const EvidenceToggle = ({ title, evidence }: EvidencePoint) => {
+	const [isOpen, setIsOpen] = useState(false);
+
+	return (
+		<div className="border border-gray-200 rounded-lg mb-2">
+			<button
+				onClick={() => setIsOpen(!isOpen)}
+				className="w-full px-4 py-2 text-left flex justify-between items-center hover:bg-gray-50 rounded-lg focus:outline-none"
+			>
+				<span className="font-medium">{title}</span>
+				<span
+					className={`transform transition-transform ${
+						isOpen ? "rotate-180" : ""
+					}`}
+				>
+					▼
+				</span>
+			</button>
+			{isOpen && (
+				<div className="px-4 py-2 border-t border-gray-200">
+					<p className="text-sm text-gray-700 whitespace-pre-line">
+						{evidence}
+					</p>
+				</div>
+			)}
+		</div>
+	);
+};
+
+// Helper function to safely parse evidence
+const parseEvidence = (evidence: any): EvidencePoint[] => {
+	console.log("Parsing evidence:", evidence); // Debug log
+
+	// If it's already an array of evidence points
+	if (Array.isArray(evidence)) {
+		console.log("Evidence is an array:", evidence); // Debug log
+		return evidence.map((point) => {
+			if (typeof point === "object" && point !== null) {
+				return {
+					title: point.title || "Untitled Evidence",
+					evidence: point.evidence || "No details provided",
+				};
+			}
+			return {
+				title: "Untitled Evidence",
+				evidence: String(point),
+			};
+		});
+	}
+
+	// If it's a string, try to parse it as JSON
+	if (typeof evidence === "string") {
+		try {
+			const parsed = JSON.parse(evidence);
+			console.log("Parsed JSON evidence:", parsed); // Debug log
+			if (Array.isArray(parsed)) {
+				return parsed.map((point) => ({
+					title: point.title || "Untitled Evidence",
+					evidence: point.evidence || "No details provided",
+				}));
+			}
+			// If it's a single object
+			if (typeof parsed === "object" && parsed !== null) {
+				return [
+					{
+						title: parsed.title || "Untitled Evidence",
+						evidence: parsed.evidence || "No details provided",
+					},
+				];
+			}
+		} catch (e) {
+			console.error("Failed to parse evidence string:", e);
+			// If it's a plain string, treat it as a single evidence point
+			return [
+				{
+					title: "Evidence Point",
+					evidence: evidence,
+				},
+			];
+		}
+	}
+
+	console.log("Returning empty evidence array"); // Debug log
+	return [];
+};
 
 export default function TaskSolver() {
 	const [taskState, setTaskState] = useState<TaskState>(TASK_STATES.START);
@@ -344,15 +435,55 @@ export default function TaskSolver() {
 							(a: PaperAnalysis) => a.title === paper.title
 						);
 						if (analysis) {
+							// Log the raw analysis data for debugging
+							console.log(
+								"Raw analysis data for paper:",
+								paper.title,
+								analysis
+							);
+
+							// Parse the evidence strings if they're JSON strings
+							let supporting_evidence = [];
+							let opposing_evidence = [];
+
+							try {
+								supporting_evidence =
+									typeof analysis.supporting_evidence === "string"
+										? JSON.parse(analysis.supporting_evidence)
+										: analysis.supporting_evidence;
+							} catch (e) {
+								console.error("Error parsing supporting evidence:", e);
+							}
+
+							try {
+								opposing_evidence =
+									typeof analysis.opposing_evidence === "string"
+										? JSON.parse(analysis.opposing_evidence)
+										: analysis.opposing_evidence;
+							} catch (e) {
+								console.error("Error parsing opposing evidence:", e);
+							}
+
+							// Log the parsed evidence
+							console.log("Parsed evidence for paper:", paper.title, {
+								supporting_evidence,
+								opposing_evidence,
+							});
+
 							return {
 								...paper,
-								supporting_evidence: analysis.supporting_evidence,
-								opposing_evidence: analysis.opposing_evidence,
-								key_findings: analysis.key_findings,
+								supporting_evidence: supporting_evidence,
+								opposing_evidence: opposing_evidence,
+								key_findings:
+									analysis.key_findings || "No key findings available.",
 							};
 						}
 						return paper;
 					});
+
+					// Log the final updated papers
+					console.log("Updated papers with analysis:", updatedPapers);
+
 					setResearchPapers(updatedPapers);
 				}
 
@@ -678,18 +809,47 @@ export default function TaskSolver() {
 									<h4 className="font-semibold text-green-800 mb-2">
 										Supporting Evidence
 									</h4>
-									<p className="text-sm text-gray-700 whitespace-pre-line">
-										{paper.supporting_evidence ||
-											"No supporting evidence found."}
-									</p>
+									<div className="space-y-2">
+										{paper.supporting_evidence &&
+										parseEvidence(paper.supporting_evidence).length > 0 ? (
+											parseEvidence(paper.supporting_evidence).map(
+												(evidence, idx) => (
+													<EvidenceToggle
+														key={`${paper.title}-support-${idx}`}
+														title={evidence.title}
+														evidence={evidence.evidence}
+													/>
+												)
+											)
+										) : (
+											<p className="text-sm text-gray-700">
+												No supporting evidence found.
+											</p>
+										)}
+									</div>
 								</div>
 								<div className="bg-red-50 p-4 rounded-lg">
 									<h4 className="font-semibold text-red-800 mb-2">
 										Opposing Evidence
 									</h4>
-									<p className="text-sm text-gray-700 whitespace-pre-line">
-										{paper.opposing_evidence || "No opposing evidence found."}
-									</p>
+									<div className="space-y-2">
+										{paper.opposing_evidence &&
+										parseEvidence(paper.opposing_evidence).length > 0 ? (
+											parseEvidence(paper.opposing_evidence).map(
+												(evidence, idx) => (
+													<EvidenceToggle
+														key={`${paper.title}-oppose-${idx}`}
+														title={evidence.title}
+														evidence={evidence.evidence}
+													/>
+												)
+											)
+										) : (
+											<p className="text-sm text-gray-700">
+												No opposing evidence found.
+											</p>
+										)}
+									</div>
 								</div>
 							</div>
 

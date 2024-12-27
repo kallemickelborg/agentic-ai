@@ -78,6 +78,11 @@ class Author(BaseModel):
     name: str
 
 
+class EvidencePoint(BaseModel):
+    title: str
+    evidence: str
+
+
 class Paper(BaseModel):
     title: str
     link: str
@@ -96,10 +101,12 @@ class Paper(BaseModel):
     full_text_accessible: bool = False
     full_text_link: Optional[str] = None
     source_type: str = (
-        "abstract_only"  # Can be "abstract_only", "open_access", "requires_access"
+        "open_access",
+        "abstract_only",
+        "requires_access",
     )
-    supporting_evidence: Optional[str] = None
-    opposing_evidence: Optional[str] = None
+    supporting_evidence: Optional[List[EvidencePoint]] = None
+    opposing_evidence: Optional[List[EvidencePoint]] = None
     key_findings: Optional[str] = None
 
 
@@ -212,13 +219,41 @@ class PaperAnalysis(dspy.Signature):
     clarifying_context = dspy.InputField()
 
     supporting_evidence = dspy.OutputField(
-        desc="3-5 specific pieces of evidence from the paper that support the user's query, with page numbers or sections if available"
+        desc="""List of evidence points that support the user's query. Each point must be an object in this exact format:
+        [
+            {
+                "title": "Short descriptive title of the evidence point",
+                "evidence": "Detailed evidence with page/section reference"
+            },
+            ...
+        ]
+        Example:
+        [
+            {
+                "title": "Vitamin K2 improves metabolic health",
+                "evidence": "Study showed significant decrease in waist circumference and fat mass (p. 1246)"
+            }
+        ]"""
     )
     opposing_evidence = dspy.OutputField(
-        desc="3-5 specific pieces of evidence from the paper that oppose or limit the user's query, with page numbers or sections if available"
+        desc="""List of evidence points that oppose or limit the user's query. Each point must be an object in this exact format:
+        [
+            {
+                "title": "Short descriptive title of the limitation/opposing evidence",
+                "evidence": "Detailed evidence with page/section reference"
+            },
+            ...
+        ]
+        Example:
+        [
+            {
+                "title": "Limited effectiveness in elderly population",
+                "evidence": "No significant improvements observed in patients over 75 years (Results section)"
+            }
+        ]"""
     )
     key_findings = dspy.OutputField(
-        desc="Brief summary of the paper's key findings relevant to the query, focusing on methodology and results"
+        desc="Brief summary of the paper's key findings relevant to the query"
     )
 
 
@@ -231,23 +266,43 @@ paper_evaluation_module = dspy.ChainOfThought(PaperEvaluation)
 
 # Configure paper analysis module with specific parameters
 paper_analysis_module = dspy.ChainOfThought(PaperAnalysis)
-
-# Set the configuration directly on the module
 paper_analysis_module.temperature = 0.7
 
 # Example prompt to guide the analysis
 paper_analysis_module.preset_prompt = """
-Given a research paper's content (either full text or abstract) and a user's query with clarifying context, analyze the paper to:
-1. Extract specific evidence that supports the user's query, including page numbers or sections when available
-2. Extract specific evidence that opposes or limits the user's query, including page numbers or sections when available
-3. Summarize key findings relevant to the query, focusing on methodology and results
+Given a research paper's content and a user's query with clarifying context, analyze the paper to extract evidence in a specific format.
 
-Remember to:
-- Be specific and cite exact findings, statistics, or quotes when possible
-- Include page numbers or section references for full text papers
-- Note any limitations or caveats in the findings
-- Consider both direct and indirect evidence
-- Maintain scientific accuracy and context
+For both supporting and opposing evidence, you must return a list of objects, where each object has exactly two fields:
+- "title": A short, descriptive title summarizing the evidence point
+- "evidence": Detailed evidence with page/section reference
+
+Example format:
+{
+    "supporting_evidence": [
+        {
+            "title": "Vitamin K2 improves metabolic health",
+            "evidence": "Study showed significant decrease in waist circumference and fat mass (p. 1246)"
+        },
+        {
+            "title": "Positive effects on insulin sensitivity",
+            "evidence": "Randomized controlled trial showed improvements in insulin sensitivity markers (p. 1247)"
+        }
+    ],
+    "opposing_evidence": [
+        {
+            "title": "Limited effectiveness in elderly",
+            "evidence": "No significant improvements in patients over 75 years (Results section)"
+        }
+    ]
+}
+
+Important:
+1. Always return evidence as a list of objects, even if there's only one piece of evidence
+2. Each evidence point must have both a title and evidence field
+3. Make titles clear and informative
+4. Include page numbers or section references when available
+5. If no evidence is found, return an empty list []
+6. Never return plain strings, always use the object format
 """
 
 # ============================================================================
@@ -524,11 +579,8 @@ async def fetch_pmc_paper_content(pmid: str) -> Tuple[bool, Optional[str]]:
 
 async def analyze_paper_content(
     paper: Paper, user_query: str, clarifying_context: str
-) -> Dict[str, str]:
-    """
-    Analyze paper content using full text when available, otherwise use abstract.
-    Returns dictionary with supporting evidence, opposing evidence, and key findings.
-    """
+) -> Dict[str, any]:
+    """Analyze paper content using full text when available, otherwise use abstract."""
     try:
         # Extract PMID from the PubMed URL
         pmid = paper.link.split("/")[-1]
@@ -551,24 +603,11 @@ async def analyze_paper_content(
             return {
                 "title": paper.title,
                 "link": paper.link,
-                "supporting_evidence": "No content available for analysis.",
-                "opposing_evidence": "No content available for analysis.",
+                "supporting_evidence": [],
+                "opposing_evidence": [],
                 "key_findings": "No content available for analysis.",
                 "analysis_type": "error",
             }
-
-        # Check content length and truncate if necessary (GPT-4 has ~8k token limit)
-        max_chars = 32000  # Approximate character limit for 8k tokens
-        if len(analysis_text) > max_chars:
-            logger.warning(
-                f"Content too long ({len(analysis_text)} chars), truncating to {max_chars} chars"
-            )
-            analysis_text = analysis_text[:max_chars] + "... [truncated due to length]"
-
-        # Log content length for debugging
-        logger.info(
-            f"Analyzing {content_type} for {paper.title}, content length: {len(analysis_text)} chars"
-        )
 
         # Analyze content using DSPy
         try:
@@ -581,50 +620,120 @@ async def analyze_paper_content(
                 clarifying_context=clarifying_context,
             )
 
-            logger.info(f"Raw DSPy response for {paper.title}: {response}")
-            logger.info(f"Analysis completed for {paper.title}")
-
             # Extract and validate the evidence
-            supporting = (
-                response.supporting_evidence
-                if hasattr(response, "supporting_evidence")
-                else ""
-            )
-            opposing = (
-                response.opposing_evidence
-                if hasattr(response, "opposing_evidence")
-                else ""
-            )
+            supporting = []
+            opposing = []
+
+            # Format supporting evidence
+            if hasattr(response, "supporting_evidence"):
+                raw_supporting = response.supporting_evidence
+                logger.info(
+                    f"Raw supporting evidence for {paper.title}: {raw_supporting}"
+                )
+
+                # Handle both string and list formats
+                if isinstance(raw_supporting, list):
+                    for point in raw_supporting:
+                        if (
+                            isinstance(point, dict)
+                            and "title" in point
+                            and "evidence" in point
+                        ):
+                            supporting.append(
+                                {"title": point["title"], "evidence": point["evidence"]}
+                            )
+                elif isinstance(raw_supporting, str):
+                    # Try to parse if it's a JSON string
+                    try:
+                        parsed = json.loads(raw_supporting)
+                        if isinstance(parsed, list):
+                            for point in parsed:
+                                if (
+                                    isinstance(point, dict)
+                                    and "title" in point
+                                    and "evidence" in point
+                                ):
+                                    supporting.append(
+                                        {
+                                            "title": point["title"],
+                                            "evidence": point["evidence"],
+                                        }
+                                    )
+                    except json.JSONDecodeError:
+                        # If not valid JSON, split into sentences
+                        sentences = raw_supporting.split(". ")
+                        supporting = [
+                            {
+                                "title": f"Evidence Point {i+1}",
+                                "evidence": sentence.strip() + ".",
+                            }
+                            for i, sentence in enumerate(sentences)
+                            if sentence.strip()
+                        ]
+
+            # Format opposing evidence
+            if hasattr(response, "opposing_evidence"):
+                raw_opposing = response.opposing_evidence
+                logger.info(f"Raw opposing evidence for {paper.title}: {raw_opposing}")
+
+                # Handle both string and list formats
+                if isinstance(raw_opposing, list):
+                    for point in raw_opposing:
+                        if (
+                            isinstance(point, dict)
+                            and "title" in point
+                            and "evidence" in point
+                        ):
+                            opposing.append(
+                                {"title": point["title"], "evidence": point["evidence"]}
+                            )
+                elif isinstance(raw_opposing, str):
+                    # Try to parse if it's a JSON string
+                    try:
+                        parsed = json.loads(raw_opposing)
+                        if isinstance(parsed, list):
+                            for point in parsed:
+                                if (
+                                    isinstance(point, dict)
+                                    and "title" in point
+                                    and "evidence" in point
+                                ):
+                                    opposing.append(
+                                        {
+                                            "title": point["title"],
+                                            "evidence": point["evidence"],
+                                        }
+                                    )
+                    except json.JSONDecodeError:
+                        # If not valid JSON, split into sentences
+                        sentences = raw_opposing.split(". ")
+                        opposing = [
+                            {
+                                "title": f"Evidence Point {i+1}",
+                                "evidence": sentence.strip() + ".",
+                            }
+                            for i, sentence in enumerate(sentences)
+                            if sentence.strip()
+                        ]
+
             findings = (
                 response.key_findings if hasattr(response, "key_findings") else ""
             )
 
-            # Log the extracted content
+            # Log the extracted content for debugging
             logger.info(f"Extracted evidence for {paper.title}:")
-            logger.info(f"Supporting evidence: {supporting}")
-            logger.info(f"Opposing evidence: {opposing}")
+            logger.info(f"Supporting evidence: {json.dumps(supporting, indent=2)}")
+            logger.info(f"Opposing evidence: {json.dumps(opposing, indent=2)}")
             logger.info(f"Key findings: {findings}")
 
             # Add content type context to the response
-            content_note = f"\n\n[Analysis based on {content_type}]"
-
-            # Validate that we got meaningful content
-            if not any([supporting.strip(), opposing.strip(), findings.strip()]):
-                logger.warning(f"No meaningful analysis results for {paper.title}")
-                return {
-                    "title": paper.title,
-                    "link": paper.link,
-                    "supporting_evidence": "Analysis produced no meaningful results.",
-                    "opposing_evidence": "Analysis produced no meaningful results.",
-                    "key_findings": "Analysis produced no meaningful results.",
-                    "analysis_type": "error",
-                }
+            content_note = f" [Analysis based on {content_type}]"
 
             result = {
                 "title": paper.title,
                 "link": paper.link,
-                "supporting_evidence": supporting + content_note,
-                "opposing_evidence": opposing + content_note,
+                "supporting_evidence": supporting,
+                "opposing_evidence": opposing,
                 "key_findings": findings + content_note,
                 "analysis_type": content_type,
             }
@@ -640,8 +749,8 @@ async def analyze_paper_content(
             return {
                 "title": paper.title,
                 "link": paper.link,
-                "supporting_evidence": "Error during paper analysis.",
-                "opposing_evidence": "Error during paper analysis.",
+                "supporting_evidence": [],
+                "opposing_evidence": [],
                 "key_findings": "Error during paper analysis.",
                 "analysis_type": "error",
             }
@@ -652,8 +761,8 @@ async def analyze_paper_content(
         return {
             "title": paper.title,
             "link": paper.link,
-            "supporting_evidence": "Error analyzing paper content.",
-            "opposing_evidence": "Error analyzing paper content.",
+            "supporting_evidence": [],
+            "opposing_evidence": [],
             "key_findings": "Error analyzing paper content.",
             "analysis_type": "error",
         }
@@ -818,17 +927,13 @@ def check_paper_accessibility(pmid: str) -> tuple[bool, Optional[str], str]:
 
 
 def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
-    """
-    Fetch research papers from PubMed E-utilities API.
-    Returns a list of Paper objects with essential information.
-    """
+    """Fetch research papers from PubMed E-utilities API."""
     logger.info(f"Original query: '{query}'")
-
     cleaned_query = clean_query(query)
     enhanced_query = enhance_search_query(cleaned_query)
     logger.info(f"Enhanced query: '{enhanced_query}'")
-
     base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+    papers = []
 
     try:
         # Initial search to get paper IDs
@@ -869,23 +974,21 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
             timeout=10,
         )
         efetch_response.raise_for_status()
-
         root = ET.fromstring(efetch_response.content)
-        papers = []
 
         for article in root.findall(".//PubmedArticle"):
             try:
-                # Extract basic information with safe defaults
+                # Extract basic information
                 title = article.findtext(".//ArticleTitle") or "No title available"
                 abstract = article.findtext(".//AbstractText") or ""
                 pmid = article.findtext(".//PMID") or "No PMID available"
 
-                # Check paper accessibility
+                # Check accessibility
                 is_accessible, full_text_link, source_type = check_paper_accessibility(
                     pmid
                 )
 
-                # Extract authors more efficiently
+                # Extract authors
                 authors = []
                 for author in article.findall(".//Author"):
                     last_name = author.findtext("LastName") or ""
@@ -893,7 +996,7 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
                     if last_name or fore_name:
                         authors.append(Author(name=f"{last_name} {fore_name}".strip()))
 
-                # Extract publication date
+                # Extract date
                 pub_date = article.find(".//PubDate")
                 published_date = "Date not available"
                 if pub_date is not None:
@@ -902,7 +1005,7 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
                     day = pub_date.findtext("Day") or ""
                     published_date = "-".join(filter(None, [year, month, day]))
 
-                # Determine study type from abstract
+                # Study type
                 study_type = "unknown"
                 abstract_lower = abstract.lower()
                 if any(
@@ -921,14 +1024,14 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
                 ):
                     study_type = "in vitro"
 
-                # Extract publication types
+                # Publication types
                 publication_types = [
                     pub_type.text
                     for pub_type in article.findall(".//PublicationType")
                     if pub_type.text
                 ]
 
-                # Determine peer review status
+                # Peer review status
                 peer_reviewed = bool(
                     article.find(".//Journal")
                     and "Journal Article" in publication_types
@@ -953,8 +1056,6 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
                 logger.error(f"Error processing article: {str(e)}")
                 continue
 
-        return papers
-
     except requests.RequestException as e:
         logger.error(f"API request failed: {str(e)}")
         raise HTTPException(
@@ -966,6 +1067,8 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+    return papers
 
 
 def process_research_papers(task_description: str, input_data: dict):
