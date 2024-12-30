@@ -1,11 +1,11 @@
 # Stateful AI Agent for Knowledge Extraction in Medical Research
 
-A simple human-in-the-loop playground for a multi-state AI agent designed to answer medical research questions with research papers from PubMed. This project is based on the [StateFlow](https://arxiv.org/abs/2403.11322) research paper, using states with cascading function calling in a research pipeline. The benefit of using states is that it allows for a more structured and modular approach to the research process, making it easier to manage and scale. Using states is a different but highly effective approach for building AI agents, allowing for more deterministic and predictable behavior. The function calling is implemented using [FastAPI](https://fastapi.tiangolo.com/), [OpenAI API](https://openai.com/api/) and [DSPy](https://dspy.ai/) to process Chain-of-Thought reasoning for prompting the LLM.
+A simple human-in-the-loop multi-state AI agent designed to answer medical research questions with research papers from PubMed. This project is based on the [StateFlow](https://arxiv.org/abs/2403.11322) research paper, using states with cascading function calling in a research pipeline. The benefit of using states is that it allows for a more structured and modular approach to the research process, making it easier to manage and scale. Using states is a different but highly effective approach for building AI agents, allowing for more deterministic and predictable behavior. The function calling is implemented using [FastAPI](https://fastapi.tiangolo.com/), [OpenAI API](https://openai.com/api/) and [DSPy](https://dspy.ai/) to process Chain-of-Thought reasoning for prompting the LLM. The backend is interfaced using a frontend implemented in [Next.js](https://nextjs.org/) and [Tailwind CSS](https://tailwindcss.com/).
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Tech Stack](#tech-stack)
+- [Overview](#overview)
 - [Functions](#functions)
 - [Roadmap](#roadmap)
 - [Getting Started](#getting-started)
@@ -14,10 +14,6 @@ A simple human-in-the-loop playground for a multi-state AI agent designed to ans
 - [Development](#development)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
-
-## Overview
-
-This project implements a number of different Python frameworks and libraries to create a multi-state AI agent for knowledge extraction in medical research. The agent has been designed with 5 states in mind; Start, Clarify, Research, Analyze, and Conclusion. Each state has a number of functions that are used to extract knowledge from the research papers. Below is a list of the functions for each state.
 
 ## Tech Stack
 
@@ -30,7 +26,11 @@ This project implements a number of different Python frameworks and libraries to
 - Animation: [Framer Motion](https://www.framer.com/motion/)
 - Deployment: [Render](https://render.com/)
 
-### Functions at each state
+## Overview
+
+This project implements a number of different Python frameworks and libraries to create a multi-state AI agent for knowledge extraction in medical research. The agent has been designed with 5 states in mind; Start, Clarify, Research, Analyze, and Conclusion. Each state has a number of functions that are used to extract knowledge from the research papers. Below is a list of the functions for each state.
+
+### Functions
 
 #### State 1: Start
 
@@ -74,6 +74,7 @@ This project is a work in progress, and so needs more work to be fully functiona
 - [ ] Refactor functions for each state for better readability and maintainability
 - [ ] Add more descriptive logging and error handling for debugging and troubleshooting
 - [ ] Improve the UI/UX for the frontend for better user experience and legibility
+- [ ] Add proper DSPy instantiation of prompt optimization
 
 ## Getting Started
 
