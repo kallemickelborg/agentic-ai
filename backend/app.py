@@ -950,7 +950,12 @@ def fetch_research_papers(query: str, max_results: int = 20) -> List[Paper]:
             timeout=10,
         )
         search_response.raise_for_status()
-        search_data = search_response.json()
+
+        try:
+            search_data = search_response.json()
+        except Exception as e:
+            logger.error(f"Error parsing search response: {e}")
+            search_data = {}
 
         id_list = search_data.get("esearchresult", {}).get("idlist", [])
         query_key = search_data.get("esearchresult", {}).get("querykey")

@@ -14,6 +14,7 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import StepIndicator from "./ui/StepIndicator";
 import Toast from "./ui/ToastNotifications";
+import { StateTooltip } from "./StateTooltip";
 
 interface Author {
 	name: string;
@@ -949,7 +950,8 @@ export default function TaskSolver() {
 			transition={{ duration: 1 }}
 			className="w-4/5 mx-auto flex flex-col items-center justify-center min-h-screen"
 		>
-			<div>
+			<div className="relative w-full">
+				<StateTooltip currentState={taskState} />
 				<Typography variant="h1" className="text-3xl mb-4">
 					Agentic AI PubMed Research Assistant
 				</Typography>
