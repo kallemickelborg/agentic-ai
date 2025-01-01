@@ -18,7 +18,6 @@ const tooltipContent = {
 		"Review the selected papers in detail. Each paper's evidence is categorized as supporting or opposing your query, with key findings highlighted for easy reference.",
 	Conclude:
 		"Based on the analyzed papers, we'll provide a comprehensive conclusion that synthesizes the findings and addresses your original query.",
-	End: "Your research session is complete. You can start a new query or review the findings from your current session.",
 };
 
 export const StateTooltip: React.FC<StateTooltipProps> = ({ currentState }) => {

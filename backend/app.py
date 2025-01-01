@@ -126,7 +126,7 @@ state_transitions = {
     "Clarify": "Research",
     "Research": "Analyze",
     "Analyze": "Conclude",
-    "Conclude": "End",
+    "Conclude": "Start",
 }
 
 state_substeps = {
@@ -148,7 +148,6 @@ state_substeps = {
         "Formulating the final conclusion based on research.",
         "Ensuring all points are covered comprehensively.",
     ],
-    "End": ["Task completed successfully."],
 }
 
 # ============================================================================

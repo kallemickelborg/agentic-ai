@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 
-const steps = ["Start", "Clarify", "Research", "Analyze", "Conclude", "End"];
+const steps = ["Start", "Clarify", "Research", "Analyze", "Conclude"];
 
 interface StepIndicatorProps {
 	currentState: string;

@@ -88,7 +88,6 @@ const TASK_STATES = {
 	RESEARCH: "Research",
 	ANALYZE: "Analyze",
 	CONCLUDE: "Conclude",
-	END: "End",
 } as const;
 
 const placeholderData = {
@@ -345,7 +344,7 @@ export default function TaskSolver() {
 			} else if (taskState === TASK_STATES.ANALYZE) {
 				nextState = TASK_STATES.CONCLUDE;
 			} else if (taskState === TASK_STATES.CONCLUDE) {
-				nextState = TASK_STATES.END;
+				nextState = TASK_STATES.START;
 			}
 
 			const payload: Task = {
@@ -869,8 +868,6 @@ export default function TaskSolver() {
 	);
 
 	const renderActionButton = () => {
-		if (taskState === TASK_STATES.END) return null;
-
 		return (
 			<Button
 				onClick={handleTask}
@@ -952,8 +949,8 @@ export default function TaskSolver() {
 		>
 			<div className="relative w-full">
 				<StateTooltip currentState={taskState} />
-				<Typography variant="h1" className="text-3xl mb-4">
-					Agentic AI PubMed Research Assistant
+				<Typography variant="h1" className="text-3xl mb-4 text-center">
+					Stateful AI Agent for Knowledge Extraction in Medical Research
 				</Typography>
 			</div>
 
