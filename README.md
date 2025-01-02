@@ -71,7 +71,7 @@ This project is a work in progress, and so needs more work to be fully functiona
 
 - [ ] Finish the Conclusion state placeholder
 - [ ] Add functions for Conclusion state
-- [ ] Add XState for improved state management across async operations
+- [x] Add a proper state transition system for the frontend (move between states)
 - [ ] Refactor functions for each state for better readability and maintainability
 - [ ] Add more descriptive logging and error handling for debugging and troubleshooting
 - [ ] Improve the UI/UX for the frontend for better user experience and legibility

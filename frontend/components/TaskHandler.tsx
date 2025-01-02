@@ -45,9 +45,9 @@ interface Paper {
 interface PaperAnalysis {
 	title: string;
 	link: string;
-	supporting_evidence: string;
-	opposing_evidence: string;
-	key_findings: string;
+	supporting_evidence?: EvidencePoint[];
+	opposing_evidence?: EvidencePoint[];
+	key_findings?: string;
 }
 
 interface Task {
@@ -55,12 +55,12 @@ interface Task {
 	input_data: {
 		selected_papers?: string[];
 		clarify_answers?: { question: string; answer: string }[];
+		direction?: "forward" | "backward";
+		paper_analyses?: PaperAnalysis[];
 	};
 	task_description: string;
 	research_papers: Paper[];
-	original_query?: string;
-	enhanced_query?: string;
-	paper_analyses?: PaperAnalysis[];
+	state_history?: string[];
 }
 
 interface ClarifyAnswer {
@@ -248,6 +248,7 @@ export default function TaskSolver() {
 	});
 	const [originalQuery, setOriginalQuery] = useState<string>("");
 	const [enhancedQuery, setEnhancedQuery] = useState<string>("");
+	const [stateHistory, setStateHistory] = useState<string[]>([]);
 
 	const handleSelectPaper = (link: string) => {
 		setSelectedPapers((prev) =>
@@ -876,10 +877,10 @@ export default function TaskSolver() {
 					(taskState === TASK_STATES.RESEARCH && selectedPapers.length === 0)
 				}
 				variant="primary"
-				className="w-1/2 text-center m"
+				className="w-1/3 flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none"
 			>
 				{isLoading ? (
-					<div className="flex items-center">
+					<div className="flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none">
 						<Spinner size="md" /> Thinking...
 					</div>
 				) : taskState === TASK_STATES.START ? (
@@ -940,6 +941,40 @@ export default function TaskSolver() {
 		);
 	};
 
+	const handleStateTransition = async (direction: "forward" | "backward") => {
+		if (direction === "backward") {
+			switch (taskState) {
+				case TASK_STATES.CLARIFY:
+					setTaskState(TASK_STATES.START);
+					break;
+				case TASK_STATES.RESEARCH:
+					setTaskState(TASK_STATES.CLARIFY);
+					break;
+				case TASK_STATES.ANALYZE:
+					setTaskState(TASK_STATES.RESEARCH);
+					break;
+				case TASK_STATES.CONCLUDE:
+					setTaskState(TASK_STATES.ANALYZE);
+					break;
+			}
+			setStateHistory((prev) => prev.slice(0, -1));
+			return;
+		}
+
+		handleTask();
+	};
+
+	const renderBackButton = () => (
+		<Button
+			onClick={() => handleStateTransition("backward")}
+			disabled={isLoading || taskState === TASK_STATES.START}
+			variant="secondary"
+			className="w-1/3 flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none"
+		>
+			Previous Step
+		</Button>
+	);
+
 	return (
 		<motion.div
 			initial={{ opacity: 0, y: 50 }}
@@ -981,9 +1016,19 @@ export default function TaskSolver() {
 					{taskState === TASK_STATES.RESEARCH && renderResearchState()}
 					{taskState === TASK_STATES.ANALYZE && renderAnalyzeState()}
 
-					{renderActionButton()}
+					<div className="flex justify-between items-center mt-4">
+						{renderBackButton()}
+						{renderActionButton()}
+					</div>
+
 					{renderSelectedPapers()}
 				</motion.div>
+
+				<div className="text-sm text-gray-500 text-center mt-4">
+					{stateHistory.length > 0 && (
+						<span>History: {stateHistory.join(" → ")}</span>
+					)}
+				</div>
 
 				{toast && (
 					<Toast

@@ -115,6 +115,7 @@ class Task(BaseModel):
     input_data: dict
     task_description: str
     research_papers: List[Paper] = []
+    state_history: List[str] = []  # Add state history tracking
 
 
 # ============================================================================
@@ -149,6 +150,31 @@ state_substeps = {
         "Ensuring all points are covered comprehensively.",
     ],
 }
+
+# State transition maps
+forward_transitions = {
+    "Start": "Clarify",
+    "Clarify": "Research",
+    "Research": "Analyze",
+    "Analyze": "Conclude",
+    "Conclude": "Start",
+}
+
+backward_transitions = {
+    "Clarify": "Start",
+    "Research": "Clarify",
+    "Analyze": "Research",
+    "Conclude": "Analyze",
+    "Start": "Conclude",
+}
+
+
+def get_next_state(current_state: str, direction: str = "forward") -> str:
+    """Get the next state based on direction."""
+    if direction == "forward":
+        return forward_transitions.get(current_state, current_state)
+    return backward_transitions.get(current_state, current_state)
+
 
 # ============================================================================
 # DSPy Signatures
@@ -1179,43 +1205,83 @@ def process_research_papers(task_description: str, input_data: dict):
 
 
 @app.post("/solve-task/")
-async def solve_task(task: Task):
+async def solve_task_endpoint(task: Task):
+    """
+    FastAPI endpoint that handles the task solving process.
+    """
     logger.info(f"Received task: {task.dict()}")
     try:
-        state = task.state
-        logger.info(f"Current state: {state}")
-        input_data = task.input_data
-        task_description = task.task_description
-        research_papers = task.research_papers
+        # Get direction from input_data
+        direction = task.input_data.get("direction", "forward")
 
-        if state == "Start":
-            next_state = "Clarify"
-            current_steps = state_substeps.get(state, [])
-            logger.info(f"Transitioning from 'Start' to '{next_state}'")
-            return {"state": next_state, "current_steps": current_steps}
+        # For backward transitions, just update the state without executing functions
+        if direction == "backward":
+            # Update state history
+            if task.state_history:
+                task.state_history.pop()  # Remove current state
 
-        elif state == "Clarify":
-            questions = generate_clarifying_questions(task_description)
-            logger.info(f"Generated questions: {questions}")
-            current_steps = state_substeps.get(state, [])
+            # Update state based on current state
+            if task.state == "Clarify":
+                return {
+                    "state": "Start",
+                    "current_steps": state_substeps.get("Start", []),
+                    "state_history": task.state_history,
+                }
+            elif task.state == "Research":
+                return {
+                    "state": "Clarify",
+                    "current_steps": state_substeps.get("Clarify", []),
+                    "state_history": task.state_history,
+                }
+            elif task.state == "Analyze":
+                return {
+                    "state": "Research",
+                    "current_steps": state_substeps.get("Research", []),
+                    "state_history": task.state_history,
+                    "research_papers": task.research_papers,
+                }
+            elif task.state == "Conclude":
+                return {
+                    "state": "Analyze",
+                    "current_steps": state_substeps.get("Analyze", []),
+                    "state_history": task.state_history,
+                    "paper_analyses": task.input_data.get("paper_analyses", []),
+                }
+
+        # Forward transitions continue with normal function execution
+        if task.state == "Start":
+            next_state = get_next_state(task.state, direction)
             return {
-                "state": "Clarify",
-                "questions": questions,
-                "current_steps": current_steps,
+                "state": next_state,
+                "current_steps": state_substeps.get(task.state, []),
+                "state_history": task.state_history,
             }
 
-        if state == "Research":
+        elif task.state == "Clarify":
+            if direction == "forward":
+                questions = generate_clarifying_questions(task.task_description)
+                logger.info(f"Generated questions: {questions}")
+                return {
+                    "state": get_next_state(task.state, direction),
+                    "questions": questions,
+                    "current_steps": state_substeps.get(task.state, []),
+                    "state_history": task.state_history,
+                }
+
+        elif task.state == "Research":
 
             async def generate_research_updates():
-                for update in process_research_papers(task_description, input_data):
+                for update in process_research_papers(
+                    task.task_description, task.input_data
+                ):
                     yield f"data: {json.dumps(update)}\n\n"
 
             return StreamingResponse(
                 generate_research_updates(), media_type="text/event-stream"
             )
 
-        elif state == "Analyze":
-            selected_papers_links = input_data.get("selected_papers", [])
+        elif task.state == "Analyze":
+            selected_papers_links = task.input_data.get("selected_papers", [])
             if not selected_papers_links:
                 logger.warning("No papers selected for analysis.")
                 return {
@@ -1226,7 +1292,7 @@ async def solve_task(task: Task):
 
             research_papers = [
                 paper
-                for paper in research_papers
+                for paper in task.research_papers
                 if paper.link in selected_papers_links
             ]
             if not research_papers:
@@ -1239,16 +1305,15 @@ async def solve_task(task: Task):
 
             logger.info(f"Starting analysis for {len(research_papers)} papers")
             analysis_result = await analyze_papers(
-                task_description,
-                state,
+                task.task_description,
+                task.state,
                 research_papers,
-                input_data.get("clarify_answers", []),
+                task.input_data.get("clarify_answers", []),
             )
             logger.info(
                 f"Analysis completed, result structure: {json.dumps(analysis_result, indent=2)}"
             )
 
-            # Check if analysis was successful
             if not analysis_result.get("paper_analyses"):
                 logger.warning("Analysis produced no results.")
                 return {
@@ -1257,39 +1322,38 @@ async def solve_task(task: Task):
                     "current_steps": [],
                 }
 
-            # Return the analysis result directly
             logger.info(
                 f"Sending analysis response to frontend: {json.dumps(analysis_result, indent=2)}"
             )
             return analysis_result
 
-        elif state == "Conclude":
-            selected_papers_links = input_data.get("selected_papers", [])
+        elif task.state == "Conclude":
+            selected_papers_links = task.input_data.get("selected_papers", [])
             if not selected_papers_links:
-                logger.warning("No papers selected for analysis.")
+                logger.warning("No papers selected for conclusion.")
                 return {
                     "state": "Error",
-                    "error_message": "No papers have been selected for analysis.",
+                    "error_message": "No papers have been selected for conclusion.",
                     "current_steps": [],
                 }
 
             research_papers = [
                 paper
-                for paper in research_papers
+                for paper in task.research_papers
                 if paper.link in selected_papers_links
             ]
             if not research_papers:
                 logger.warning("Selected papers not found in research_papers.")
                 return {
                     "state": "Error",
-                    "error_message": "Selected papers not found for analysis.",
+                    "error_message": "Selected papers not found for conclusion.",
                     "current_steps": [],
                 }
 
-            conclusion = conclude_research(task_description, state, research_papers)
-            response = conclusion
-
-            if len(response.split()) < 50:
+            conclusion = conclude_research(
+                task.task_description, task.state, research_papers
+            )
+            if len(conclusion.split()) < 50:
                 logger.warning("Response is not conclusive.")
                 return {
                     "state": "Error",
@@ -1297,17 +1361,21 @@ async def solve_task(task: Task):
                     "current_steps": [],
                 }
 
-            next_state = state_transitions.get(state, "End")
-            logger.info(f"Transitioning from '{state}' to '{next_state}'")
+            next_state = get_next_state(task.state, direction)
+            logger.info(f"Transitioning from '{task.state}' to '{next_state}'")
             return {
                 "state": next_state,
-                "response": response,
-                "current_steps": state_substeps.get(state, []),
+                "response": conclusion,
+                "current_steps": state_substeps.get(task.state, []),
             }
 
         else:
-            logger.warning(f"Unknown state '{state}'. Ending task.")
-            return {"state": "End", "current_steps": state_substeps.get("End", [])}
+            logger.warning(f"Unknown state '{task.state}'. Ending task.")
+            return {
+                "state": "Start",
+                "current_steps": state_substeps.get("Start", []),
+                "state_history": [],
+            }
 
     except HTTPException as e:
         if e.status_code == 204:
