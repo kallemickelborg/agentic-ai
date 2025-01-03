@@ -8,12 +8,14 @@ A simple human-in-the-loop multi-state AI agent designed to answer medical resea
 - [Overview](#overview)
 - [Functions](#functions)
 - [Roadmap](#roadmap)
+- [Backlog](#backlog)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
 - [Development](#development)
 - [Deployment](#deployment)
 - [Contributing](#contributing)
+- [Contact](#contact)
 
 ## Tech Stack
 
@@ -67,15 +69,27 @@ This project implements a number of different Python frameworks and libraries to
 
 ## Roadmap
 
+- [ ] Implement the Conclusion state
+- [ ] Implement Embase API access
+- [ ] Implement PICO Search Option for research paper literature review
+- [ ] Implement paper access type (Open Access, Paywalled, etc.) tag
+- [ ] Implement citation scoring of entire research paper pdf rather than abstract
+- [ ] Improve the UI/UX on the frontend
+
+### Potential Roadmaps
+
+- [ ] Implement research question critique agent state
+
+## Backlog
+
 This project is a work in progress, and so needs more work to be fully functional. Below is a list of tasks.
 
-- [ ] Finish the Conclusion state placeholder
-- [ ] Add functions for Conclusion state
-- [x] Add a proper state transition system for the frontend (move between states)
+- [x] Add state transition to move between states (02/01/2025)
+- [x] Implement proper component structure and file path organization on the frontend (03/01/2025)
 - [ ] Refactor functions for each state for better readability and maintainability
 - [ ] Add more descriptive logging and error handling for debugging and troubleshooting
-- [ ] Improve the UI/UX for the frontend for better user experience and legibility
 - [ ] Add proper DSPy instantiation of prompt optimization
+- [ ] Break up main app.py (serverless function) into smaller callable functions
 
 ## Getting Started
 
@@ -146,4 +160,8 @@ For detailed deployment instructions, refer to the [Render documentation](https:
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. If you are a medical researcher or student and know about the process of conducting research, please feel free to write to me and help me understand the medical research process better.
+
+## Contact
+
+If you have any questions or feedback, please feel free to contact me at kallemickelborg@gmail.com

@@ -19,7 +19,6 @@ import pdfplumber
 from bs4 import BeautifulSoup
 from typing import Optional, Tuple, Dict
 import datetime
-
 import dspy
 
 # ============================================================================
