@@ -20,7 +20,7 @@ A simple human-in-the-loop multi-state AI agent designed to answer medical resea
 ## Tech Stack
 
 - Frontend: [Next.js](https://nextjs.org/) (React framework)
-- Backend: [Python](https://www.python.org/) with [FastAPI](https://fastapi.tiangolo.com/) (Python framework)
+- Backend: [Python](https://www.python.org/) with [FastAPI](https://fastapi.tiangolo.com/) (Python framework) and [Uvicorn](https://www.uvicorn.org/) (ASGI server)
 - Data Validation: [Pydantic](https://docs.pydantic.dev/) (Type checking)
 - Language Model: [OpenAI API](https://openai.com/blog/openai-api) (GPT models)
 - Prompting Framework: [DSPy](https://dspy.ai/) (Chain-of-Thought reasoning)
