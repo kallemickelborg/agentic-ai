@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Label from "@/components/ui/Label";
 import Typography from "@/components/ui/Typography";
 import { ProcessingStatus } from "@/types/research";
+import { Badge } from "@/components/ui/Badge";
 
 interface ClarifyStateProps {
 	clarifyAnswers: Array<{ question: string; answer: string }>;
@@ -106,14 +107,14 @@ export const ClarifyState: React.FC<ClarifyStateProps> = ({
 									{processingStatus.currentPaper.title}
 								</div>
 								<div className="flex space-x-4 mt-2">
-									<span className="text-xs font-medium px-2 py-1 bg-green-100 text-green-800 rounded">
+									<Badge variant="success" size="sm">
 										Relevancy:{" "}
 										{Math.round(processingStatus.currentPaper.relevancy_score)}%
-									</span>
-									<span className="text-xs font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
+									</Badge>
+									<Badge variant="info" size="sm">
 										Scientific Merit:{" "}
 										{Math.round(processingStatus.currentPaper.citation_score)}%
-									</span>
+									</Badge>
 								</div>
 							</div>
 						)}

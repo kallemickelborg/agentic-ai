@@ -114,7 +114,7 @@ class Task(BaseModel):
     input_data: dict
     task_description: str
     research_papers: List[Paper] = []
-    state_history: List[str] = []  # Add state history tracking
+    state_history: List[str] = []
 
 
 # ============================================================================
@@ -272,7 +272,7 @@ class PaperAnalysis(dspy.Signature):
         [
             {
                 "title": "Limited effectiveness in elderly population",
-                "evidence": "No significant improvements observed in patients over 75 years (Results section)"
+                "evidence": "No significant improvements observed in patients over 75 years (p. 18)"
             }
         ]"""
     )
@@ -751,7 +751,7 @@ async def analyze_paper_content(
             logger.info(f"Key findings: {findings}")
 
             # Add content type context to the response
-            content_note = f" [Analysis based on {content_type}]"
+            content_note = f" Analysis is based on {content_type} content type."
 
             result = {
                 "title": paper.title,

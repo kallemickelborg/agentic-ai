@@ -45,7 +45,6 @@ export default function TaskHandler() {
 		processingStatus,
 		originalQuery,
 		enhancedQuery,
-		stateHistory,
 		handleClarifyAnswer,
 		handleSelectPaper,
 		handleRestart,
@@ -147,19 +146,19 @@ export default function TaskHandler() {
 			transition={{ duration: 1 }}
 			className="w-full mx-auto flex flex-col items-center justify-center min-h-screen"
 		>
-			<div className="relative w-full">
-				<StateTooltip currentState={taskState} />
-				<Typography variant="h1" className="text-3xl mb-4 text-center">
-					Stateful AI Agent for Knowledge Extraction in Medical Research
-				</Typography>
-			</div>
-
 			<motion.div
 				initial={{ opacity: 0, y: 50 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 1 }}
 				className="w-full mx-auto p-8 bg-white text-black"
 			>
+				<div className="relative w-full mb-10">
+					<Typography variant="h1" className="text-3xl text-center">
+						Stateful AI Agent for Knowledge Extraction in Medical Research
+					</Typography>
+				</div>
+
+				<StateTooltip currentState={taskState} />
 				<StepIndicator currentState={taskState} />
 
 				<motion.div
@@ -182,12 +181,6 @@ export default function TaskHandler() {
 						{renderActionButton()}
 					</div>
 				</motion.div>
-
-				<div className="text-sm text-gray-500 text-center mt-4">
-					{stateHistory.length > 0 && (
-						<span>History: {stateHistory.join(" → ")}</span>
-					)}
-				</div>
 
 				{toast && (
 					<Toast
