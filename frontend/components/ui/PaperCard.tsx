@@ -2,7 +2,6 @@ import React from "react";
 import { Paper } from "@/types/research";
 import { EvidenceToggle } from "./EvidenceToggle";
 import Typography from "./Typography";
-import { Badge } from "./Badge";
 
 interface PaperCardProps {
 	paper: Paper;
@@ -25,20 +24,20 @@ export const PaperCard: React.FC<PaperCardProps> = ({
 					>
 						{paper.title}
 					</a>
-					<div className="mt-2 flex space-x-2">
+					<div className="mt-2 float-right">
 						{renderAccessibility && renderAccessibility(paper)}
 					</div>
 				</div>
 				<div className="flex space-x-2">
 					{paper.relevancy_score !== undefined && (
-						<Badge variant="success" size="sm">
+						<span className="text-sm font-medium px-2 py-1 bg-green-100 text-green-800 rounded">
 							Relevancy: {Math.round(paper.relevancy_score)}%
-						</Badge>
+						</span>
 					)}
 					{paper.citation_score !== undefined && (
-						<Badge variant="info" size="sm">
+						<span className="text-sm font-medium px-2 py-1 bg-blue-100 text-blue-800 rounded">
 							Scientific Merit: {Math.round(paper.citation_score)}%
-						</Badge>
+						</span>
 					)}
 				</div>
 			</div>
@@ -54,7 +53,7 @@ export const PaperCard: React.FC<PaperCardProps> = ({
 
 			<div className="grid gap-4">
 				<div className="bg-gray-50 p-4 rounded-lg">
-					<h4 className="text-md font-semibold text-green-800 mb-2">
+					<h4 className="text-sm font-semibold text-green-800 mb-2">
 						Supporting Evidence
 					</h4>
 					<div className="space-y-2">
@@ -75,7 +74,7 @@ export const PaperCard: React.FC<PaperCardProps> = ({
 					</div>
 				</div>
 				<div className="bg-gray-50 p-4 rounded-lg">
-					<h4 className="text-md font-semibold text-red-800 mb-2">
+					<h4 className="text-sm font-semibold text-red-800 mb-2">
 						Opposing Evidence
 					</h4>
 					<div className="text-sm space-y-2">

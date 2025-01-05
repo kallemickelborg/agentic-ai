@@ -5,6 +5,7 @@ import List from "@/components/ui/List";
 import { Paper } from "@/types/research";
 import { QueryInfo } from "@/components/ui/QueryInfo";
 import { PaperListItem } from "@/components/ui/PaperListItem";
+import { classes } from "@/styles/classes";
 
 interface ResearchStateProps {
 	noResultsFound: boolean;
@@ -35,7 +36,11 @@ export const ResearchState: React.FC<ResearchStateProps> = ({
 					<Typography variant="p" className="mb-4">
 						Do you want to start over?
 					</Typography>
-					<Button onClick={handleRestart} variant="primary">
+					<Button
+						onClick={handleRestart}
+						variant="primary"
+						className={classes.button.primary}
+					>
 						Restart
 					</Button>
 				</div>

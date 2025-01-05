@@ -315,7 +315,7 @@ Example format:
     "opposing_evidence": [
         {
             "title": "Limited effectiveness in elderly",
-            "evidence": "No significant improvements in patients over 75 years (Results section)"
+            "evidence": "No significant improvements in patients over 75 years (p. 12)"
         }
     ]
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import clsx from "clsx";
+import { classes } from "@/styles/classes";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 	variant?: "primary" | "secondary";
@@ -11,12 +12,9 @@ const Button: React.FC<ButtonProps> = ({
 	className,
 	...props
 }) => {
-	const baseClasses =
-		"flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none";
+	const baseClasses = classes.button.container;
 	const variantClasses =
-		variant === "primary"
-			? "text-white bg-indigo-600 hover:bg-indigo-700"
-			: "text-gray-700 bg-gray-200 hover:bg-gray-300";
+		variant === "primary" ? classes.button.primary : classes.button.secondary;
 
 	return (
 		<button

@@ -1,17 +1,6 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import "../styles/globals.css";
-
-const geistSans = localFont({
-	src: "./fonts/GeistVF.woff",
-	variable: "--font-geist-sans",
-	weight: "100 900",
-});
-const geistMono = localFont({
-	src: "./fonts/GeistMonoVF.woff",
-	variable: "--font-geist-mono",
-	weight: "100 900",
-});
+import { classes } from "@/styles/classes";
 
 export const metadata: Metadata = {
 	title: "Stateful AI Agent for Knowledge Extraction in Medical Research",
@@ -25,10 +14,8 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en">
-			<body className={`${geistSans.variable} ${geistMono.variable}`}>
-				{children}
-			</body>
+		<html lang="en" className={classes.body.wrapper}>
+			<body className={classes.body.content}>{children}</body>
 		</html>
 	);
 }

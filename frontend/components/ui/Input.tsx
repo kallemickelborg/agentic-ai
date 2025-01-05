@@ -1,10 +1,11 @@
 // components/ui/Input.tsx
 import React from "react";
+import { classes } from "@/styles/classes";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
 const Input: React.FC<InputProps> = (props) => {
-	return <input {...props} className="border p-2 w-[90%] flex mx-auto" />;
+	return <input {...props} className={classes.item.input} />;
 };
 
 export default Input;

@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Label from "@/components/ui/Label";
 import Typography from "@/components/ui/Typography";
-import { ProcessingStatus } from "@/types/research";
 import { Badge } from "@/components/ui/Badge";
+import { ProcessingStatus } from "@/types/research";
+import { classes } from "@/styles/classes";
+import { cn } from "@/utils/cn";
 
 interface ClarifyStateProps {
 	clarifyAnswers: Array<{ question: string; answer: string }>;
@@ -39,33 +41,33 @@ export const ClarifyState: React.FC<ClarifyStateProps> = ({
 		);
 	};
 
-	console.log("ClarifyState - clarifyAnswers:", clarifyAnswers);
-
 	return (
-		<div className="mb-6">
-			{/* <Typography variant="h1" className="mb-2 text-indigo-600">
-				Clarifying Questions
-			</Typography> */}
+		<div className={classes.page.content}>
 			{clarifyAnswers && clarifyAnswers.length > 0 ? (
-				<div className="space-y-4">
+				<div className={classes.page.content}>
 					{clarifyAnswers.map((qa, index) => (
-						<div
-							key={index}
-							className="p-4 bg-gray-50 rounded-lg w-1/2 mx-auto"
-						>
-							<Label className="block mb-2 text-lg">{qa.question}</Label>
-							<div className="flex gap-4">
+						<div key={index} className={classes.item.container}>
+							<p className={classes.item.label}>{qa.question}</p>
+							<div className={classes.button.container}>
 								<Button
 									onClick={() => handleClarifyAnswer(index, "Yes")}
 									variant={qa.answer === "Yes" ? "primary" : "secondary"}
-									className="w-full"
+									className={
+										qa.answer === "Yes"
+											? classes.button.primary
+											: classes.button.secondary
+									}
 								>
 									Yes
 								</Button>
 								<Button
 									onClick={() => handleClarifyAnswer(index, "No")}
 									variant={qa.answer === "No" ? "primary" : "secondary"}
-									className="w-full"
+									className={
+										qa.answer === "No"
+											? classes.button.primary
+											: classes.button.secondary
+									}
 								>
 									No
 								</Button>
@@ -74,39 +76,38 @@ export const ClarifyState: React.FC<ClarifyStateProps> = ({
 					))}
 				</div>
 			) : (
-				<div className="text-gray-600 p-4 bg-gray-50 rounded-lg">
-					Loading questions...
-				</div>
+				<div className={classes.questions.loading}>Loading questions...</div>
 			)}
 
 			{processingStatus.totalPapers > 0 && (
-				<div className="mt-6 bg-gray-50 p-4 rounded-lg">
-					<div className="flex justify-between items-center mb-2">
-						<Typography variant="h3" className="text-indigo-600">
+				<div className={classes.paperProcessing.container}>
+					<div className={classes.paperProcessing.header.container}>
+						<Typography variant="h3" className={classes.text.heading.primary}>
 							Processing Papers
 						</Typography>
-						<span className="text-sm text-gray-600">
+						<span className={classes.paperProcessing.header.counter}>
 							{processingStatus.processedPapers} of{" "}
 							{processingStatus.totalPapers}
 						</span>
 					</div>
 
-					<div className="w-full bg-gray-200 rounded-full h-2.5 my-4">
+					<div className={classes.progress.container}>
 						<motion.div
-							className="bg-indigo-600 h-2.5 rounded-full"
+							className={classes.progress.bar}
 							initial={{ width: "0%" }}
 							animate={{ width: `${calculateProgress()}%` }}
 							transition={{ duration: 0.5 }}
+							style={{ width: `${calculateProgress()}%` }}
 						/>
 					</div>
 
 					{processingStatus.currentPaper &&
 						isValidPaper(processingStatus.currentPaper) && (
-							<div className="text-sm bg-white p-3 rounded-md shadow-sm">
-								<div className="font-medium text-gray-800">
+							<div className={classes.paperProcessing.paper.container}>
+								<div className={classes.paperProcessing.paper.title}>
 									{processingStatus.currentPaper.title}
 								</div>
-								<div className="flex space-x-4 mt-2">
+								<div className={classes.paperProcessing.paper.badges}>
 									<Badge variant="success" size="sm">
 										Relevancy:{" "}
 										{Math.round(processingStatus.currentPaper.relevancy_score)}%

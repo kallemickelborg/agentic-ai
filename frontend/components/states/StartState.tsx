@@ -1,5 +1,6 @@
 import React from "react";
 import Input from "@/components/ui/Input";
+import { classes } from "@/styles/classes";
 
 interface StartStateProps {
 	taskDescription: string;
@@ -11,14 +12,14 @@ export const StartState: React.FC<StartStateProps> = ({
 	setTaskDescription,
 }) => {
 	return (
-		<div className="mb-6">
+		<div className={classes.body.content}>
 			<Input
 				type="text"
 				id="taskDescription"
 				value={taskDescription}
 				onChange={(e) => setTaskDescription(e.target.value)}
 				placeholder="e.g., Benefits of Omega-3 Fatty Acids"
-				className="w-full p-3 bg-white border-2 border-black rounded-md"
+				className={classes.item.input}
 			/>
 		</div>
 	);

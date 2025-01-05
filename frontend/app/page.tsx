@@ -1,11 +1,10 @@
-import TaskSolver from "../components/TaskHandler";
+import TaskHandler from "../components/TaskHandler";
+import { classes } from "@/styles/classes";
 
 export default function Home() {
-  return (
-    <div className="page">
-      <main className="main">
-        <TaskSolver />
-      </main>
-    </div>
-  );
+	return (
+		<main className={classes.body.content}>
+			<TaskHandler />
+		</main>
+	);
 }

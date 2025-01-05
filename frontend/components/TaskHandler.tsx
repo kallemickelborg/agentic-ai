@@ -4,6 +4,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
+import { classes } from "@/styles/classes";
 
 // Components
 import Button from "@/components/ui/Button";
@@ -62,24 +63,19 @@ export default function TaskHandler() {
 				(taskState === TASK_STATES.RESEARCH && selectedPapers.length === 0)
 			}
 			variant="primary"
-			className="w-1/3 flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none"
 		>
-			{isLoading ? (
-				<div className="flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none">
-					<Spinner size="md" /> Thinking...
-				</div>
-			) : taskState === TASK_STATES.START ? (
-				"Start Research"
-			) : taskState === TASK_STATES.CLARIFY &&
-			  clarifyAnswers.some((ans) => ans.answer === "") ? (
-				"Get Clarifying Questions"
-			) : taskState === TASK_STATES.CLARIFY ? (
-				"Submit Answers"
-			) : taskState === TASK_STATES.RESEARCH ? (
-				"Proceed with Selected Papers"
-			) : (
-				"Next Step"
-			)}
+			{isLoading
+				? "Thinking..."
+				: taskState === TASK_STATES.START
+				? "Start Research"
+				: taskState === TASK_STATES.CLARIFY &&
+				  clarifyAnswers.some((ans) => ans.answer === "")
+				? "Get Clarifying Questions"
+				: taskState === TASK_STATES.CLARIFY
+				? "Submit Answers"
+				: taskState === TASK_STATES.RESEARCH
+				? "Proceed with Selected Papers"
+				: "Next Step"}
 		</Button>
 	);
 
@@ -88,7 +84,6 @@ export default function TaskHandler() {
 			onClick={() => handleStateTransition("backward")}
 			disabled={isLoading || taskState === TASK_STATES.START}
 			variant="secondary"
-			className="w-1/3 flex mx-auto items-center justify-center text-center px-4 py-2 border border-transparent text-xs font-medium rounded-md focus:outline-none"
 		>
 			Previous Step
 		</Button>
@@ -144,43 +139,26 @@ export default function TaskHandler() {
 			initial={{ opacity: 0, y: 50 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ duration: 1 }}
-			className="w-full mx-auto flex flex-col items-center justify-center min-h-screen"
+			className={classes.body.wrapper}
 		>
-			<motion.div
-				initial={{ opacity: 0, y: 50 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 1 }}
-				className="w-full mx-auto p-8 bg-white text-black"
-			>
-				<div className="relative w-full mb-10">
-					<Typography variant="h1" className="text-3xl text-center">
-						Stateful AI Agent for Knowledge Extraction in Medical Research
-					</Typography>
-				</div>
-
+			<div>
 				<StateTooltip currentState={taskState} />
+				<Typography variant="h1">
+					Stateful AI Agent for Knowledge Extraction in Medical Research
+				</Typography>
+			</div>
+
+			<div className={classes.page.container}>
 				<StepIndicator currentState={taskState} />
 
-				<motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ delay: 1 }}
-					className="mb-8"
-				>
-					{isLoading && (
-						<div className="mt-6 mb-4">
-							<Skeleton height={30} width={`80%`} />
-							<Skeleton count={3} />
-						</div>
-					)}
-
+				<div className={classes.page.content}>
 					{renderCurrentState()}
 
-					<div className="flex justify-between items-center mt-4">
+					<div className={classes.button.container}>
 						{renderBackButton()}
 						{renderActionButton()}
 					</div>
-				</motion.div>
+				</div>
 
 				{toast && (
 					<Toast
@@ -189,7 +167,7 @@ export default function TaskHandler() {
 						onClose={() => setToast(null)}
 					/>
 				)}
-			</motion.div>
+			</div>
 		</motion.div>
 	);
 }

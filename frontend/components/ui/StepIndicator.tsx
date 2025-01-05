@@ -1,3 +1,4 @@
+import { classes } from "@/styles/classes";
 import { motion } from "framer-motion";
 
 const steps = ["Start", "Clarify", "Research", "Analyze", "Conclude"];
@@ -10,7 +11,7 @@ export default function StepIndicator({ currentState }: StepIndicatorProps) {
 	const currentStepIndex = steps.indexOf(currentState);
 
 	return (
-		<div className="flex justify-between mb-6">
+		<div className={classes.page.states}>
 			{steps.map((label, index) => (
 				<div key={label} className="flex-1 flex flex-col items-center">
 					<motion.div

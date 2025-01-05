@@ -86,6 +86,7 @@ This project is a work in progress, and so needs more work to be fully functiona
 
 - [x] Add state transition to move between states (02/01/2025)
 - [x] Implement proper component structure and file path organization on the frontend (03/01/2025)
+- [x] Create classes.ts to consolidate Tailwind classes (05/01/2025)
 - [ ] Refactor functions for each state for better readability and maintainability
 - [ ] Add more descriptive logging and error handling for debugging and troubleshooting
 - [ ] Add proper DSPy instantiation of prompt optimization
