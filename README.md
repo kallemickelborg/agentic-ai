@@ -69,6 +69,8 @@ This project implements a number of different Python frameworks and libraries to
 
 ## Roadmap
 
+- [ ] Abstract app.py into separate components (data models, states, tools, DSPy Signatures, logging, etc.)
+- [ ] Add logging for streaming of abstract information & token usage for PaperEvaluation
 - [ ] Implement the Conclusion state
 - [ ] Implement Embase API access
 - [ ] Implement PICO Search Option for research paper literature review
