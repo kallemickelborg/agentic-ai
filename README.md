@@ -1,6 +1,14 @@
 # Stateful AI Agent for Knowledge Extraction in Medical Research
 
-A simple human-in-the-loop multi-state AI agent designed to answer medical research questions with research papers from PubMed. This project is based on the [StateFlow](https://arxiv.org/abs/2403.11322) research paper, using states with cascading function calling in a research pipeline. The benefit of using states is that it allows for a more structured and modular approach to the research process, making it easier to manage and scale. Using states is a different but highly effective approach for building AI agents, allowing for more deterministic and predictable behavior. The function calling is implemented using [FastAPI](https://fastapi.tiangolo.com/), [OpenAI API](https://openai.com/api/) and [DSPy](https://dspy.ai/) to process Chain-of-Thought reasoning for prompting the LLM. The backend is interfaced using a frontend implemented in [Next.js](https://nextjs.org/) and [Tailwind CSS](https://tailwindcss.com/).
+A simple human-in-the-loop multi-state AI agent designed to answer medical research questions with research papers from PubMed. The project uses [FastAPI](https://fastapi.tiangolo.com/), [OpenAI API](https://openai.com/api/) and [DSPy](https://dspy.ai/) to process Chain-of-Thought reasoning for prompting the LLM. The backend is interfaced using a frontend implemented in [Next.js](https://nextjs.org/) and [Tailwind CSS](https://tailwindcss.com/).
+
+## Why Stateful AI Agents?
+
+The major benefit of using stateful AI Agents is the inherit deterministic nature of output that is able to be inferred. This is particularly useful in businesses and industries where specific and predictable output is required, such as pharmaceutical companies, financial services, etc. Deep Research agents are great at gathering information from a plethora of different sources - however they are not necessarily the sources that you want to use, particularly not in highly specialized fields. This project offers an alternative, particular for medical research, to the Deep Research agents that have surfaced from OpenAI, Google and Anthropic.
+
+Implementing states for an AI Agent allows a much more controllable and deterministic output, while retaining the ability to augment an entire workflow. Furthermore, states are inherently modular, making it easier to manage and scale.
+
+This project is based on the [StateFlow](https://arxiv.org/abs/2403.11322) research paper, using states with cascading function calling and passing of output between states.
 
 ## Table of Contents
 
@@ -69,22 +77,17 @@ This project implements a number of different Python frameworks and libraries to
 
 ## Roadmap
 
-- [ ] Abstract app.py into separate components (data models, states, tools, DSPy Signatures, logging, etc.)
-- [ ] Add logging for streaming of abstract information & token usage for PaperEvaluation
 - [ ] Implement the Conclusion state
-- [ ] Implement Embase API access
+- [ ] Implement option to select data sources (PubMed, Embase, etc.)
+- [ ] Implement Web Search API: [Brave Search API] (https://brave.com/search/api/)
 - [ ] Implement PICO Search Option for research paper literature review
 - [ ] Implement paper access type (Open Access, Paywalled, etc.) tag
 - [ ] Implement citation scoring of entire research paper pdf rather than abstract
-- [ ] Improve the UI/UX on the frontend
-
-### Potential Roadmaps
-
-- [ ] Implement research question critique agent state
+- [ ] Implement fine-tuned embedding models on medical nomenclature
 
 ## Backlog
 
-This project is a work in progress, and so needs more work to be fully functional. Below is a list of tasks.
+This project is work in progress. Below is a list of tasks and fixes that are pending.
 
 - [x] Add state transition to move between states (02/01/2025)
 - [x] Implement proper component structure and file path organization on the frontend (03/01/2025)
@@ -93,6 +96,8 @@ This project is a work in progress, and so needs more work to be fully functiona
 - [ ] Add more descriptive logging and error handling for debugging and troubleshooting
 - [ ] Add proper DSPy instantiation of prompt optimization
 - [ ] Break up main app.py (serverless function) into smaller callable functions
+- [ ] Abstract app.py into separate components (data models, states, tools, DSPy Signatures, logging, etc.)
+- [ ] Add logging for streaming of research paper abstract information & token usage for PaperEvaluation
 
 ## Getting Started
 
