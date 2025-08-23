@@ -7,5 +7,5 @@ openai>=1.0.0
 dspy
 PyPDF2==3.0.1
 pdfplumber==0.10.3
-aiohttp==3.9.1
+aiohttp
 beautifulsoup4==4.12.2
