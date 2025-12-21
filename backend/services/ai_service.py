@@ -119,7 +119,7 @@ class AIService:
 
         # Configure paper analysis module with specific parameters
         self.paper_analysis_module = dspy.ChainOfThought(PaperAnalysis)
-        self.paper_analysis_module.temperature = 0.7
+        self.paper_analysis_module.temperature = 1
 
         # Example prompt to guide the analysis
         self.paper_analysis_module.preset_prompt = """
@@ -282,6 +282,21 @@ Important:
                             supporting.append(
                                 {"title": point["title"], "evidence": point["evidence"]}
                             )
+                elif isinstance(raw_supporting, str) and raw_supporting.strip():
+                    try:
+                        parsed = json.loads(raw_supporting)
+                        if isinstance(parsed, list):
+                            for point in parsed:
+                                if (
+                                    isinstance(point, dict)
+                                    and "title" in point
+                                    and "evidence" in point
+                                ):
+                                    supporting.append(
+                                        {"title": point["title"], "evidence": point["evidence"]}
+                                    )
+                    except json.JSONDecodeError:
+                        pass
 
             # Format opposing evidence
             if hasattr(response, "opposing_evidence"):
@@ -296,6 +311,21 @@ Important:
                             opposing.append(
                                 {"title": point["title"], "evidence": point["evidence"]}
                             )
+                elif isinstance(raw_opposing, str) and raw_opposing.strip():
+                    try:
+                        parsed = json.loads(raw_opposing)
+                        if isinstance(parsed, list):
+                            for point in parsed:
+                                if (
+                                    isinstance(point, dict)
+                                    and "title" in point
+                                    and "evidence" in point
+                                ):
+                                    opposing.append(
+                                        {"title": point["title"], "evidence": point["evidence"]}
+                                    )
+                    except json.JSONDecodeError:
+                        pass
 
             findings = (
                 response.key_findings if hasattr(response, "key_findings") else ""

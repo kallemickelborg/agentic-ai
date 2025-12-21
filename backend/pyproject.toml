@@ -1,0 +1,19 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi>=0.126.0",
+    "uvicorn",
+    "pydantic",
+    "requests",
+    "python-dotenv",
+    "openai>=1.0.0",
+    "dspy",
+    "PyPDF2==3.0.1",
+    "pdfplumber==0.10.3",
+    "aiohttp",
+    "beautifulsoup4==4.12.2",
+]

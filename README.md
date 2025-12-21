@@ -29,6 +29,7 @@ This project is based on the [StateFlow](https://arxiv.org/abs/2403.11322) resea
 
 - Frontend: [Next.js](https://nextjs.org/) (React framework)
 - Backend: [Python](https://www.python.org/) with [FastAPI](https://fastapi.tiangolo.com/) (Python framework) and [Uvicorn](https://www.uvicorn.org/) (ASGI server)
+- Package Management: [UV](https://github.com/astral-sh/uv) (Fast Python package installer and resolver)
 - Data Validation: [Pydantic](https://docs.pydantic.dev/) (Type checking)
 - Language Model: [OpenAI API](https://openai.com/blog/openai-api) (GPT models)
 - Prompting Framework: [DSPy](https://dspy.ai/) (Chain-of-Thought reasoning)
@@ -104,7 +105,8 @@ This project is work in progress. Below is a list of tasks and fixes that are pe
 ### Prerequisites
 
 - Node.js (v14 or later)
-- Python (v3.7 or later)
+- Python (v3.9 or later)
+- [UV](https://github.com/astral-sh/uv) (Python package manager)
 - OpenAI API key
 
 ### Installation
@@ -127,10 +129,10 @@ This project is work in progress. Below is a list of tasks and fixes that are pe
 
    ```
    cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
-   pip install -r requirements.txt
+   uv sync
    ```
+
+   This will install all dependencies defined in `pyproject.toml` and create a virtual environment automatically.
 
 4. Create a `.env` file in the backend directory with your OpenAI API key:
    ```
@@ -143,7 +145,7 @@ This project is work in progress. Below is a list of tasks and fixes that are pe
 
    ```
    cd backend
-   uvicorn app:app --reload
+   uv run uvicorn api.main:app --reload
    ```
 
 2. In a new terminal, start the frontend development server:

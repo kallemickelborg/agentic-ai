@@ -1,6 +1,7 @@
 import requests
 import xml.etree.ElementTree as ET
 import re
+import asyncio
 from typing import List, Optional, Tuple
 from fastapi import HTTPException
 from models.domain import Paper, Author
@@ -247,9 +248,9 @@ class ResearchService:
 
         return papers
 
-    def process_research_papers(self, task_description: str, input_data: dict):
+    async def process_research_papers(self, task_description: str, input_data: dict):
         """Process research papers and yield updates for each paper."""
-        research_papers = self.fetch_research_papers(task_description)
+        research_papers = await asyncio.to_thread(self.fetch_research_papers, task_description)
 
         # Get clarifying answers
         clarify_answers = input_data.get("clarify_answers", [])
@@ -278,8 +279,8 @@ class ResearchService:
         for index, paper in enumerate(research_papers):
             try:
                 # Single call to evaluate both scores with context-aware query
-                rel_score, cit_score = self.ai_service.evaluate_paper(
-                    paper, context_aware_query
+                rel_score, cit_score = await asyncio.to_thread(
+                    self.ai_service.evaluate_paper, paper, context_aware_query
                 )
 
                 paper.relevancy_score = rel_score
@@ -318,7 +319,9 @@ class ResearchService:
             "total_papers": total_papers,
             "processed_papers": len(processed_papers),
             "original_query": task_description,
-            "enhanced_query": self.enhance_query_with_dspy(
-                task_description, input_data.get("clarify_answers", [])
+            "enhanced_query": await asyncio.to_thread(
+                self.enhance_query_with_dspy,
+                task_description,
+                input_data.get("clarify_answers", []),
             ),
         }
